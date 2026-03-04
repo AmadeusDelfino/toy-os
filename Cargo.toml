@@ -1,6 +1,6 @@
 [[bin]]
 name = "toy-os"
-test = false
+test = true
 bench = false
 
 [package]
