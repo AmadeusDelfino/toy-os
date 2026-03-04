@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-pub mod vga_buffer;
+pub mod vga;
 
 use core::panic::PanicInfo;
 
