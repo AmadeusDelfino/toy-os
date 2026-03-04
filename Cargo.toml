@@ -1,3 +1,8 @@
+[[bin]]
+name = "toy-os"
+test = false
+bench = false
+
 [package]
 name = "toy-os"
 version = "0.1.0"
