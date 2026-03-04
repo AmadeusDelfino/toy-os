@@ -26,6 +26,10 @@ pub struct ColorCode(u8);
 
 impl ColorCode {
     pub fn new(foreground: Color, background: Color) -> ColorCode {
+        // 16 colors fit in 4 bits (0000..1111), so the background shifts to the upper nibble
+        // Example: background 0000_1111, foreground 0000_0001
+        // 0000_1111 << 4 = 1111_0000
+        // 1111_0000 | 0000_0001 = 1111_0001
         ColorCode((background as u8) << 4 | (foreground as u8))
     }
 }
