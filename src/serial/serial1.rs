@@ -2,6 +2,8 @@ use uart_16550::SerialPort;
 use spin::Mutex;
 use lazy_static::lazy_static;
 
+const SERIAL_PORT_ADDRESS: u16 = 0x3F8;
+
 #[doc(hidden)]
 pub fn _print(args: ::core::fmt::Arguments) {
     use core::fmt::Write;
@@ -27,7 +29,7 @@ macro_rules! serial_println {
 
 lazy_static! {
     pub static ref SERIAL1: Mutex<SerialPort> = {
-        let mut serial_port = unsafe { SerialPort::new(0x3F8) };
+        let mut serial_port = unsafe { SerialPort::new(SERIAL_PORT_ADDRESS) };
         serial_port.init();
         Mutex::new(serial_port)
     };
