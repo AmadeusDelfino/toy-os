@@ -12,10 +12,11 @@ use core::panic::PanicInfo;
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
     println!("Starting Toy-OS!");
-
+    toy_os::init();
+    
     #[cfg(test)]
     test_main();
-
+    println!("Toy-OS started");
     loop {}
 }
 
