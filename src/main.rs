@@ -13,18 +13,20 @@ use core::panic::PanicInfo;
 pub extern "C" fn _start() -> ! {
     println!("Starting Toy-OS!");
     toy_os::init();
-    
+
     #[cfg(test)]
     test_main();
     println!("Toy-OS started");
-    loop {}
+
+    toy_os::hlt_loop();
 }
 
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    loop {}
+
+    toy_os::hlt_loop();
 }
 
 #[cfg(test)]
