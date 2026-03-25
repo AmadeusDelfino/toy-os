@@ -9,6 +9,9 @@ lazy_static! {
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         idt.general_protection_fault.set_handler_fn(general_protection_fault_handler);
         idt.page_fault.set_handler_fn(page_fault_handler);
+        idt.bound_range_exceeded.set_handler_fn(bound_range_exceeded_handler);
+        idt.alignment_check.set_handler_fn(alignment_check_handler);
+        idt.cp_protection_exception.set_handler_fn(cp_protection_exception_handler);
 
         unsafe {
             idt.double_fault.set_handler_fn(double_fault_handler)
@@ -38,4 +41,16 @@ extern "x86-interrupt" fn general_protection_fault_handler(stack_frame: Interrup
 }
 extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, error_code: PageFaultErrorCode) {
     panic!("EXCEPTION: PAGE FAULT\n {:#?}\n{:#?}", stack_frame, error_code);
+}
+
+extern "x86-interrupt" fn bound_range_exceeded_handler(stack_frame: InterruptStackFrame) {
+    panic!("EXCEPTION: BOUND RANGE EXCEEDED\n{:#?}", stack_frame);
+}
+
+extern "x86-interrupt" fn alignment_check_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    panic!("EXCEPTION: ALIGNMENT CHECK\n {:#?}\n{:#?}", stack_frame, error_code);
+}
+
+extern "x86-interrupt" fn cp_protection_exception_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    panic!("EXCEPTION: CP PROTECTION FAULT\n{:#?}\n{:#?}", stack_frame, error_code);
 }
