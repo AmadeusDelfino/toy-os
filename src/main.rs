@@ -5,17 +5,14 @@
 #![reexport_test_harness_main = "test_main"]
 extern crate alloc;
 
-pub mod vga;
-pub mod serial;
-pub mod memory;
-pub mod lock;
 
-use crate::memory::allocator::init_heap;
-use crate::memory::frame::BootInfoFrameAllocator;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
+use toy_os::memory::allocator::init_heap;
+use toy_os::memory::frame::BootInfoFrameAllocator;
+use toy_os::{memory, println};
 use x86_64::VirtAddr;
 
 entry_point!(kernel_main);
@@ -35,12 +32,13 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 
+
+    println!("Toy-OS started");
+
     let a = Box::new(42);
     let b = Vec::from([1, 2, 3, 4]);
     println!("{:p}", a);
     println!("{:?}", b);
-
-    println!("Toy-OS started");
 
     toy_os::hlt_loop();
 }

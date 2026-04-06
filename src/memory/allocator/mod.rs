@@ -1,6 +1,4 @@
 mod heap;
-mod linked_list;
-mod bump;
 mod fixed_size_block;
 
 use crate::lock::Locked;

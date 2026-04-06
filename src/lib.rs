@@ -15,6 +15,8 @@ pub mod serial;
 pub mod vga;
 pub mod cpu;
 pub mod lock;
+pub mod asynchronous;
+pub mod memory;
 
 #[cfg(test)]
 entry_point!(test_kernel_main);
