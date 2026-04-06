@@ -5,11 +5,18 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+extern crate alloc;
+
+#[cfg(test)]
+use bootloader::entry_point;
 use core::panic::PanicInfo;
 
 pub mod serial;
 pub mod vga;
 pub mod cpu;
+
+#[cfg(test)]
+entry_point!(test_kernel_main);
 
 pub fn init() {
     cpu::gdt::init_gdt();
@@ -56,14 +63,10 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     hlt_loop();
 }
 
-/// Entry point for `cargo test`
 #[cfg(test)]
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
+fn test_kernel_main(_boot_info: &'static bootloader::BootInfo) -> ! {
     init();
-
     test_main();
-
     hlt_loop();
 }
 
