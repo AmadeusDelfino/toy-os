@@ -1,6 +1,7 @@
+use crate::lock::Locked;
+use crate::memory::allocator::bump::BumpAllocator;
 use crate::memory::{HEAP_SIZE, HEAP_START};
-use linked_list_allocator::LockedHeap;
-use toy_os::println;
+use crate::println;
 use x86_64::{
     structures::paging::{
         mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB,
@@ -9,7 +10,7 @@ use x86_64::{
 };
 
 #[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
+static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
 
 pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
@@ -25,13 +26,10 @@ pub fn init_heap(
     };
 
     for page in page_range {
-        println!("Using page address{:#x?}", page.start_address());
         let frame = frame_allocator
             .allocate_frame()
             .ok_or(MapToError::FrameAllocationFailed)?;
-        println!("Frame allocated: {:?}", frame);
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
-        println!("Mapping page to flags {:#x}", flags);
         unsafe {
             mapper.map_to(page, frame, flags, frame_allocator)?.flush()
         };
@@ -40,6 +38,6 @@ pub fn init_heap(
     unsafe {
         ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
     }
-
+    println!("Heap allocation successfully initialized. Start: {} | Size: {}", HEAP_START, HEAP_SIZE);
     Ok(())
 }

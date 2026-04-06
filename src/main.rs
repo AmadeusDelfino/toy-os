@@ -8,8 +8,9 @@ extern crate alloc;
 pub mod vga;
 pub mod serial;
 pub mod memory;
+pub mod lock;
 
-use crate::memory::allocator;
+use crate::memory::allocator::init_heap;
 use crate::memory::frame::BootInfoFrameAllocator;
 use alloc::boxed::Box;
 use bootloader::{entry_point, BootInfo};
@@ -25,18 +26,19 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
-    println!("Toy-OS started");
-
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
     let mut frame_allocator = unsafe {
         BootInfoFrameAllocator::init(&boot_info.memory_map)
     };
 
-    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
+    init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 
-    let x = Box::new(42);
-    println!("heap value: {:p}", x);
+    let a = Box::new(42);
+    println!("{:p}", a);
+
+    println!("Toy-OS started");
+
     toy_os::hlt_loop();
 }
 

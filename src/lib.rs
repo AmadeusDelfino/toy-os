@@ -14,6 +14,7 @@ use core::panic::PanicInfo;
 pub mod serial;
 pub mod vga;
 pub mod cpu;
+pub mod lock;
 
 #[cfg(test)]
 entry_point!(test_kernel_main);
