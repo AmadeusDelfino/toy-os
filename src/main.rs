@@ -10,12 +10,23 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
+use toy_os::asynchronous::simple_executor::SimpleExecutor;
+use toy_os::asynchronous::Task;
 use toy_os::memory::allocator::init_heap;
 use toy_os::memory::frame::BootInfoFrameAllocator;
 use toy_os::{memory, println};
 use x86_64::VirtAddr;
 
 entry_point!(kernel_main);
+
+async fn async_number() -> u32 {
+    42
+}
+
+async fn example_task() {
+    let number = async_number().await;
+    println!("async number: {}", number);
+}
 
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("Starting Toy-OS!");
@@ -39,6 +50,10 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     let b = Vec::from([1, 2, 3, 4]);
     println!("{:p}", a);
     println!("{:?}", b);
+
+    let mut executor = SimpleExecutor::new();
+    executor.spawn(Task::new(example_task()));
+    executor.run();
 
     toy_os::hlt_loop();
 }
