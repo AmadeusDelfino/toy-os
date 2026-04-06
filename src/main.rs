@@ -13,6 +13,7 @@ pub mod lock;
 use crate::memory::allocator::init_heap;
 use crate::memory::frame::BootInfoFrameAllocator;
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use x86_64::VirtAddr;
@@ -35,7 +36,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 
     let a = Box::new(42);
+    let b = Vec::from([1, 2, 3, 4]);
     println!("{:p}", a);
+    println!("{:?}", b);
 
     println!("Toy-OS started");
 

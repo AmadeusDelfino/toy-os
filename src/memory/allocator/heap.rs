@@ -1,5 +1,4 @@
-use crate::lock::Locked;
-use crate::memory::allocator::bump::BumpAllocator;
+use crate::memory::allocator::ALLOCATOR;
 use crate::memory::{HEAP_SIZE, HEAP_START};
 use crate::println;
 use x86_64::{
@@ -8,9 +7,6 @@ use x86_64::{
     },
     VirtAddr,
 };
-
-#[global_allocator]
-static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
 
 pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
