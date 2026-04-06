@@ -17,6 +17,7 @@ pub mod cpu;
 pub mod lock;
 pub mod asynchronous;
 pub mod memory;
+pub mod keyboard;
 
 #[cfg(test)]
 entry_point!(test_kernel_main);

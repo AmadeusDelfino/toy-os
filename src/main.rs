@@ -12,6 +12,7 @@ use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use toy_os::asynchronous::simple_executor::SimpleExecutor;
 use toy_os::asynchronous::Task;
+use toy_os::keyboard::print_keypresses;
 use toy_os::memory::allocator::init_heap;
 use toy_os::memory::frame::BootInfoFrameAllocator;
 use toy_os::{memory, println};
@@ -53,6 +54,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     let mut executor = SimpleExecutor::new();
     executor.spawn(Task::new(example_task()));
+    executor.spawn(Task::new(print_keypresses()));
     executor.run();
 
     toy_os::hlt_loop();
