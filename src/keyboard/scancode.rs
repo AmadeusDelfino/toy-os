@@ -4,7 +4,7 @@ use core::pin::Pin;
 use core::task::{Context, Poll};
 use crossbeam_queue::ArrayQueue;
 use futures_util::task::AtomicWaker;
-use futures_util::{Stream, StreamExt};
+use futures_util::Stream;
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();

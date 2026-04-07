@@ -6,12 +6,11 @@
 extern crate alloc;
 
 
-use alloc::boxed::Box;
-use alloc::vec::Vec;
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use toy_os::asynchronous::executor::Executor;
 use toy_os::asynchronous::Task;
+use toy_os::cpu::info::{CpuBrandString, CpuTopology};
 use toy_os::keyboard::print_keypresses;
 use toy_os::memory::allocator::init_heap;
 use toy_os::memory::frame::BootInfoFrameAllocator;
@@ -19,15 +18,6 @@ use toy_os::{memory, println};
 use x86_64::VirtAddr;
 
 entry_point!(kernel_main);
-
-async fn async_number() -> u32 {
-    42
-}
-
-async fn example_task() {
-    let number = async_number().await;
-    println!("async number: {}", number);
-}
 
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("Starting Toy-OS!");
@@ -41,19 +31,22 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     let mut frame_allocator = unsafe {
         BootInfoFrameAllocator::init(&boot_info.memory_map)
     };
-
     init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 
+    if let Some(cpu_brand) = CpuBrandString::new() {
+        println!("CPU brand: {}", cpu_brand.as_str());
+    } else {
+        println!("WARNING: failed to parse cpu brandstring");
+    }
+
+    if let Some(cpu_topology) = CpuTopology::read() {
+        println!("CPU topology. Cores ({}) | Threads ({})", cpu_topology.cores, cpu_topology.logical_processors);
+    } else {
+        println!("WARNING: failed to read cpu topology");
+    }
 
     println!("Toy-OS started");
-
-    let a = Box::new(42);
-    let b = Vec::from([1, 2, 3, 4]);
-    println!("{:p}", a);
-    println!("{:?}", b);
-
     let mut executor = Executor::new();
-    executor.spawn(Task::new(example_task()));
     executor.spawn(Task::new(print_keypresses()));
     executor.run();
 }
