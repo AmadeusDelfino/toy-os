@@ -8,7 +8,7 @@ pub struct CpuBrandString {
 }
 
 impl CpuBrandString {
-    pub fn new() -> Option<Self> {
+    pub fn read() -> Option<Self> {
         let max_ext = __cpuid_count(0x80000000, 0).eax;
         // check ext leaves
         if max_ext < 0x80000004 {
@@ -46,6 +46,7 @@ pub struct CpuTopology {
     pub threads_per_core: u16,
     pub logical_processors: u16,
     pub cores: u16,
+    pub apic_enabled: bool,
 }
 
 impl CpuTopology {
@@ -81,6 +82,7 @@ impl CpuTopology {
             threads_per_core,
             logical_processors,
             cores: logical_processors / threads_per_core,
+            apic_enabled: false,
         })
     }
 }

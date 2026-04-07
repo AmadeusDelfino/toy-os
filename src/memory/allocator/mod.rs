@@ -7,5 +7,5 @@ pub use heap::init_heap;
 
 
 #[global_allocator]
-static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(
+pub static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(
     FixedSizeBlockAllocator::new());
