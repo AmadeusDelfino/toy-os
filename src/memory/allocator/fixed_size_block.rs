@@ -1,3 +1,53 @@
+//! Fixed-size block allocator used as the kernel heap allocator.
+//!
+//! This allocator serves small allocations from segregated free lists and uses
+//! `linked_list_allocator::Heap` as a fallback for larger or more strictly
+//! aligned layouts. It is intentionally simple, but the rest of the kernel must
+//! respect the contracts below for it to remain predictable. Simple, but nice :)
+//!
+//! ## Allocation policy
+//!
+//! - A layout is classified by `max(layout.size(), layout.align())`.
+//! - Layouts that fit in one of `BLOCK_SIZES` are served by the smallest bucket
+//!   whose block size is greater than or equal to that required size.
+//! - Layouts larger than the largest bucket, or requiring stronger alignment,
+//!   are served directly by the fallback heap.
+//! - When a bucket is empty, it is refilled by allocating one fresh block from
+//!   the fallback heap using `Layout { size: block_size, align: block_size }`.
+//! - Once a block has been assigned to a bucket, freeing it returns it to that
+//!   bucket's free list. Bucket blocks are not returned to the fallback heap (I don't
+//!   wanna suffer with manual allocation now).
+//!
+//! ## Caller contract
+//!
+//! The `GlobalAlloc` contract is part of this allocator's safety boundary:
+//!
+//! - `dealloc` must receive the same `Layout` that was used for `alloc`.
+//! - `dealloc` must not receive null pointers.
+//! - Pointers passed to `dealloc` must have been returned by this allocator and
+//!   must not already have been freed.
+//! - Violating those requirements can corrupt the intrusive free lists. The
+//!   allocator does not currently detect double-free, invalid pointers, or
+//!   mismatched layouts.
+//!
+//! ## Initialization contract
+//!
+//! `init` must be called exactly once, after the heap virtual memory range has
+//! been mapped and before any heap allocation is performed. Re-initializing the
+//! fallback heap over memory that may already contain allocations would make the
+//! allocator state invalid.
+//!
+//! ## Concurrency and interrupt contract
+//!
+//! The allocator is installed through `Locked<FixedSizeBlockAllocator>`, so
+//! normal access is serialized by the global lock. The lock is a `spin::Mutex`;
+//! it does not disable interrupts. Interrupt handlers must not allocate while
+//! the kernel follows the current locking policy, because an interrupt that
+//! re-enters the allocator while interrupted code holds the lock can deadlock.
+//!
+//! If future kernel code needs allocation from interrupt context, the locking
+//! policy or allocator design must be changed deliberately before that use.
+
 use super::Locked;
 use crate::println;
 use alloc::alloc::{GlobalAlloc, Layout};

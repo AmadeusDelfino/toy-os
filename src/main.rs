@@ -5,8 +5,6 @@
 #![reexport_test_harness_main = "test_main"]
 extern crate alloc;
 
-use alloc::boxed::Box;
-use alloc::vec;
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use toy_os::asynchronous::executor::Executor;
@@ -37,10 +35,12 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     CpuTopology::read().expect("cpu topology read failed").print();
     CpuBrandString::read().expect("cpu brand string read failed").print();
 
-
-    println!("Toy-OS started");
     let mut executor = Executor::new();
     executor.spawn(Task::new(print_keypresses()));
+    executor.spawn(Task::new(print_keypresses()));
+    println!("Toy-OS started");
+
+
     executor.run();
 }
 
