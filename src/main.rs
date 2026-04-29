@@ -11,7 +11,7 @@ use toy_os::asynchronous::executor::Executor;
 use toy_os::asynchronous::Task;
 use toy_os::cpu::info::{CpuBrandString, CpuTopology};
 use toy_os::keyboard::print_keypresses;
-use toy_os::memory::allocator::{init_heap, ALLOCATOR};
+use toy_os::memory::allocator::init_heap;
 use toy_os::memory::frame::BootInfoFrameAllocator;
 use toy_os::{memory, println};
 use x86_64::VirtAddr;

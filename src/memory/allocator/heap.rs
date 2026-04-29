@@ -1,4 +1,4 @@
-use crate::memory::allocator::ALLOCATOR;
+use super::ALLOCATOR;
 use crate::memory::{HEAP_SIZE, HEAP_START};
 use crate::println;
 use x86_64::{
