@@ -1,4 +1,5 @@
 use core::arch::x86_64::__cpuid_count;
+use crate::println;
 
 /// 48-byte brand string from CPUID leaves 0x80000002 - 0x80000004.
 #[derive(Debug)]
@@ -8,6 +9,10 @@ pub struct CpuBrandString {
 }
 
 impl CpuBrandString {
+    pub fn print(&self) {
+        println!("CPU brand: {}", self.as_str());
+    }
+    
     pub fn read() -> Option<Self> {
         let max_ext = __cpuid_count(0x80000000, 0).eax;
         // check ext leaves
@@ -50,6 +55,10 @@ pub struct CpuTopology {
 }
 
 impl CpuTopology {
+    pub fn print(&self) {
+        println!("CPU topology. Cores ({}) | Threads ({})", self.cores, self.logical_processors);
+    }
+    
     pub fn read() -> Option<Self> {
         let mut threads_per_core = 1u16;
         let mut logical_processors = 1u16;

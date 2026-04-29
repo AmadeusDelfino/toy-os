@@ -28,23 +28,14 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     test_main();
 
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    let mut mapper = unsafe { memory::init(phys_mem_offset) };
+    let mut memory_mapper = unsafe { memory::init(phys_mem_offset) };
     let mut frame_allocator = unsafe {
         BootInfoFrameAllocator::init(&boot_info.memory_map)
     };
-    init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
+    init_heap(&mut memory_mapper, &mut frame_allocator).expect("heap initialization failed");
 
-    if let Some(cpu_topology) = CpuTopology::read() {
-        println!("CPU topology. Cores ({}) | Threads ({})", cpu_topology.cores, cpu_topology.logical_processors);
-    } else {
-        println!("WARNING: failed to read cpu topology");
-    }
-
-    if let Some(cpu_brand) = CpuBrandString::read() {
-        println!("CPU brand: {}", cpu_brand.as_str());
-    } else {
-        println!("WARNING: failed to parse cpu brandstring");
-    }
+    CpuTopology::read().expect("cpu topology read failed").print();
+    CpuBrandString::read().expect("cpu brand string read failed").print();
 
 
     println!("Toy-OS started");
