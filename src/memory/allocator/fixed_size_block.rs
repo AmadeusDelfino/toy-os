@@ -56,9 +56,22 @@ use core::ptr::{self, NonNull};
 
 const BLOCK_SIZES: &[usize] = &[8, 16, 32, 64, 128, 256, 512, 1024, 2048];
 
-fn list_index(layout: &Layout) -> Option<usize> {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SizeClass {
+    Bucket { index: usize, block_size: usize },
+    Fallback,
+}
+
+fn classify_layout(layout: &Layout) -> SizeClass {
     let required_block_size = layout.size().max(layout.align());
-    BLOCK_SIZES.iter().position(|&s| s >= required_block_size)
+    match BLOCK_SIZES
+        .iter()
+        .enumerate()
+        .find(|&(_, &block_size)| block_size >= required_block_size)
+    {
+        Some((index, &block_size)) => SizeClass::Bucket { index, block_size },
+        None => SizeClass::Fallback,
+    }
 }
 
 struct ListNode {
@@ -145,33 +158,32 @@ impl FixedSizeBlockAllocator {
 unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let mut allocator = self.lock();
-        match list_index(&layout) {
-            Some(index) => {
+        match classify_layout(&layout) {
+            SizeClass::Bucket { index, block_size } => {
                 let head = allocator.list_heads[index];
                 if !head.is_null() {
                     allocator.list_heads[index] = unsafe { (*head).next };
                     head as *mut u8
                 } else {
-                    let block_size = BLOCK_SIZES[index];
                     let layout = Layout::from_size_align(block_size, block_size).unwrap();
                     allocator.fallback_alloc(layout)
                 }
             }
-            None => allocator.fallback_alloc(layout),
+            SizeClass::Fallback => allocator.fallback_alloc(layout),
         }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         let mut allocator = self.lock();
-        match list_index(&layout) {
-            Some(index) => {
+        match classify_layout(&layout) {
+            SizeClass::Bucket { index, .. } => {
                 let node_ptr = ptr as *mut ListNode;
                 unsafe {
                     (*node_ptr).next = allocator.list_heads[index];
                     allocator.list_heads[index] = node_ptr;
                 }
             }
-            None => {
+            SizeClass::Fallback => {
                 let ptr = NonNull::new(ptr).unwrap();
                 unsafe {
                     allocator.fallback_allocator.deallocate(ptr, layout);
@@ -191,5 +203,49 @@ mod tests {
     #[test_case]
     fn block_size_table_satisfies_allocator_invariants() {
         assert!(block_size_invariants_hold());
+    }
+
+    #[test_case]
+    fn classify_layout_returns_bucket_with_index_and_block_size() {
+        assert_eq!(
+            classify_layout(&Layout::from_size_align(1, 1).unwrap()),
+            SizeClass::Bucket {
+                index: 0,
+                block_size: 8
+            }
+        );
+        assert_eq!(
+            classify_layout(&Layout::from_size_align(8, 8).unwrap()),
+            SizeClass::Bucket {
+                index: 0,
+                block_size: 8
+            }
+        );
+        assert_eq!(
+            classify_layout(&Layout::from_size_align(9, 1).unwrap()),
+            SizeClass::Bucket {
+                index: 1,
+                block_size: 16
+            }
+        );
+        assert_eq!(
+            classify_layout(&Layout::from_size_align(4, 32).unwrap()),
+            SizeClass::Bucket {
+                index: 2,
+                block_size: 32
+            }
+        );
+    }
+
+    #[test_case]
+    fn classify_layout_returns_fallback_when_no_bucket_fits() {
+        assert_eq!(
+            classify_layout(&Layout::from_size_align(2049, 1).unwrap()),
+            SizeClass::Fallback
+        );
+        assert_eq!(
+            classify_layout(&Layout::from_size_align(4, 4096).unwrap()),
+            SizeClass::Fallback
+        );
     }
 }
