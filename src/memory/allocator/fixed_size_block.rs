@@ -51,6 +51,7 @@
 use super::Locked;
 use crate::println;
 use alloc::alloc::{GlobalAlloc, Layout};
+use core::mem::{align_of, size_of};
 use core::ptr::{self, NonNull};
 
 const BLOCK_SIZES: &[usize] = &[8, 16, 32, 64, 128, 256, 512, 1024, 2048];
@@ -63,6 +64,43 @@ fn list_index(layout: &Layout) -> Option<usize> {
 struct ListNode {
     next: *mut ListNode,
 }
+
+const fn is_power_of_two(value: usize) -> bool {
+    value != 0 && (value & (value - 1)) == 0
+}
+
+const fn block_size_invariants_hold() -> bool {
+    if BLOCK_SIZES.is_empty() {
+        return false;
+    }
+
+    if BLOCK_SIZES[0] < size_of::<ListNode>() {
+        return false;
+    }
+
+    if BLOCK_SIZES[0] < align_of::<ListNode>() {
+        return false;
+    }
+
+    let mut index = 0;
+    while index < BLOCK_SIZES.len() {
+        let block_size = BLOCK_SIZES[index];
+
+        if !is_power_of_two(block_size) {
+            return false;
+        }
+
+        if index > 0 && BLOCK_SIZES[index - 1] >= block_size {
+            return false;
+        }
+
+        index += 1;
+    }
+
+    true
+}
+
+const _: () = assert!(block_size_invariants_hold());
 
 pub struct FixedSizeBlockAllocator {
     list_heads: [*mut ListNode; BLOCK_SIZES.len()],
@@ -145,3 +183,13 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
 
 unsafe impl Send for FixedSizeBlockAllocator {}
 unsafe impl Sync for FixedSizeBlockAllocator {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test_case]
+    fn block_size_table_satisfies_allocator_invariants() {
+        assert!(block_size_invariants_hold());
+    }
+}
