@@ -34,27 +34,18 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     };
     init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 
+    if let Some(cpu_topology) = CpuTopology::read() {
+        println!("CPU topology. Cores ({}) | Threads ({})", cpu_topology.cores, cpu_topology.logical_processors);
+    } else {
+        println!("WARNING: failed to read cpu topology");
+    }
+
     if let Some(cpu_brand) = CpuBrandString::read() {
         println!("CPU brand: {}", cpu_brand.as_str());
     } else {
         println!("WARNING: failed to parse cpu brandstring");
     }
 
-    if let Some(cpu_topology) = CpuTopology::read() {
-        println!("CPU topology. Cores ({}) | Threads ({})", cpu_topology.cores, cpu_topology.logical_processors);
-    } else {
-        println!("WARNING: failed to read cpu topology");
-    }
-    {
-        let a = Box::new(42);
-        let b = Box::new(42);
-        let c = Box::new(4200000);
-        let d = vec![a, b, c];
-        let e = vec![d];
-        let f = vec![0..10000];
-    }
-
-    ALLOCATOR.lock().list_blocks();
 
     println!("Toy-OS started");
     let mut executor = Executor::new();

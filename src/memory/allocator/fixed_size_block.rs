@@ -61,11 +61,9 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
             Some(index) => {
                 let head = allocator.list_heads[index];
                 if !head.is_null() {
-                    println!("Hit bucket");
                     allocator.list_heads[index] = unsafe { (*head).next };
                     head as *mut u8
                 } else {
-                    println!("No bucket");
                     let block_size = BLOCK_SIZES[index];
                     let layout = Layout::from_size_align(block_size, block_size).unwrap();
                     allocator.fallback_alloc(layout)
