@@ -129,6 +129,8 @@ impl FixedSizeBlockAllocator {
     }
 
     pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
+        // SAFETY: The caller must provide a mapped, unused heap region and
+        // call this exactly once before any heap allocations are performed.
         unsafe {
             self.fallback_allocator.init(heap_start, heap_size);
         }
@@ -148,6 +150,8 @@ impl FixedSizeBlockAllocator {
             let mut count = 0;
             while !current.is_null() {
                 count += 1;
+                // SAFETY: Non-null entries in a free list must point to
+                // `ListNode`s previously written by `dealloc`.
                 current = unsafe { (*current).next };
             }
             println!("{} blocks", count);
@@ -155,6 +159,9 @@ impl FixedSizeBlockAllocator {
     }
 }
 
+// SAFETY: `Locked<FixedSizeBlockAllocator>` serializes all allocator state
+// access through its mutex. Each unsafe pointer operation below relies on the
+// `GlobalAlloc` caller contract documented at the top of this module.
 unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let mut allocator = self.lock();
@@ -162,6 +169,9 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
             SizeClass::Bucket { index, block_size } => {
                 let head = allocator.list_heads[index];
                 if !head.is_null() {
+                    // SAFETY: `head` is non-null and free-list entries are
+                    // only created by `dealloc`, which writes a valid
+                    // `ListNode` into bucket-sized storage.
                     allocator.list_heads[index] = unsafe { (*head).next };
                     head as *mut u8
                 } else {
@@ -178,6 +188,11 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
         match classify_layout(&layout) {
             SizeClass::Bucket { index, .. } => {
                 let node_ptr = ptr as *mut ListNode;
+                // SAFETY: The `GlobalAlloc` caller must pass a non-null
+                // pointer allocated by this allocator with the same `Layout`.
+                // The selected bucket guarantees enough size/alignment to
+                // store `ListNode`; double-free or a mismatched layout would
+                // violate the caller contract.
                 unsafe {
                     (*node_ptr).next = allocator.list_heads[index];
                     allocator.list_heads[index] = node_ptr;
@@ -185,6 +200,9 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
             }
             SizeClass::Fallback => {
                 let ptr = NonNull::new(ptr).unwrap();
+                // SAFETY: Layouts classified as fallback are allocated and
+                // deallocated directly through the fallback heap. The
+                // `GlobalAlloc` caller must provide the matching layout.
                 unsafe {
                     allocator.fallback_allocator.deallocate(ptr, layout);
                 }
@@ -193,8 +211,9 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
     }
 }
 
+// SAFETY: The allocator's mutable state is only accessed through
+// `Locked<FixedSizeBlockAllocator>`, which serializes access with `spin::Mutex`.
 unsafe impl Send for FixedSizeBlockAllocator {}
-unsafe impl Sync for FixedSizeBlockAllocator {}
 
 #[cfg(test)]
 mod tests {

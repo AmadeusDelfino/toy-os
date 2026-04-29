@@ -26,14 +26,20 @@ pub fn init_heap(
             .allocate_frame()
             .ok_or(MapToError::FrameAllocationFailed)?;
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
-        unsafe {
-            mapper.map_to(page, frame, flags, frame_allocator)?.flush()
-        };
+        // SAFETY: The frame allocator returns an unused physical frame, and
+        // this function maps each heap page exactly once before the heap
+        // allocator is initialized.
+        unsafe { mapper.map_to(page, frame, flags, frame_allocator)?.flush() };
     }
 
+    // SAFETY: All pages in the heap range were mapped above. `init_heap` is the
+    // single initialization path and must run before heap use.
     unsafe {
         ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
     }
-    println!("Heap allocation successfully initialized. Start: {} | Size: {}", HEAP_START, HEAP_SIZE);
+    println!(
+        "Heap allocation successfully initialized. Start: {} | Size: {}",
+        HEAP_START, HEAP_SIZE
+    );
     Ok(())
 }
