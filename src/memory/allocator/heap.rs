@@ -8,10 +8,21 @@ use x86_64::{
     VirtAddr,
 };
 
+/// Maps the kernel heap range and initializes the global heap allocator.
+///
+/// This must complete successfully before any code creates heap-backed values
+/// such as `Box`, `Vec`, `Arc`, async tasks, or dynamic queues. Calling it more
+/// than once is a boot-order bug and is rejected before attempting to remap heap
+/// pages.
 pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
     frame_allocator: &mut impl FrameAllocator<Size4KiB>,
 ) -> Result<(), MapToError<Size4KiB>> {
+    assert!(
+        !ALLOCATOR.lock().is_initialized(),
+        "heap allocator must not be initialized twice"
+    );
+
     println!("Initializing heap allocation");
     let page_range = {
         let heap_start = VirtAddr::new(HEAP_START as u64);

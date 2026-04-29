@@ -33,9 +33,14 @@
 //! ## Initialization contract
 //!
 //! `init` must be called exactly once, after the heap virtual memory range has
-//! been mapped and before any heap allocation is performed. Re-initializing the
-//! fallback heap over memory that may already contain allocations would make the
-//! allocator state invalid.
+//! been mapped and before any heap allocation is performed. Until that happens,
+//! allocation requests return null. Re-initializing the fallback heap over
+//! memory that may already contain allocations would make the allocator state
+//! invalid, so a second initialization is rejected.
+//!
+//! Kernel boot code must not create `Box`, `Vec`, `Arc`, heap-backed async
+//! tasks, dynamic queues, or any other heap-allocated object before
+//! `init_heap` returns `Ok(())`.
 //!
 //! ## Concurrency and interrupt contract
 //!
@@ -118,6 +123,7 @@ const _: () = assert!(block_size_invariants_hold());
 pub struct FixedSizeBlockAllocator {
     list_heads: [*mut ListNode; BLOCK_SIZES.len()],
     fallback_allocator: linked_list_allocator::Heap,
+    initialized: bool,
 }
 
 impl FixedSizeBlockAllocator {
@@ -125,15 +131,26 @@ impl FixedSizeBlockAllocator {
         FixedSizeBlockAllocator {
             list_heads: [ptr::null_mut(); BLOCK_SIZES.len()],
             fallback_allocator: linked_list_allocator::Heap::empty(),
+            initialized: false,
         }
     }
 
+    pub(super) fn is_initialized(&self) -> bool {
+        self.initialized
+    }
+
     pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
+        assert!(
+            !self.initialized,
+            "heap allocator must not be initialized twice"
+        );
+
         // SAFETY: The caller must provide a mapped, unused heap region and
         // call this exactly once before any heap allocations are performed.
         unsafe {
             self.fallback_allocator.init(heap_start, heap_size);
         }
+        self.initialized = true;
     }
 
     fn fallback_alloc(&mut self, layout: Layout) -> *mut u8 {
@@ -165,6 +182,10 @@ impl FixedSizeBlockAllocator {
 unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let mut allocator = self.lock();
+        if !allocator.is_initialized() {
+            return ptr::null_mut();
+        }
+
         match classify_layout(&layout) {
             SizeClass::Bucket { index, block_size } => {
                 let head = allocator.list_heads[index];
@@ -222,6 +243,41 @@ mod tests {
     #[test_case]
     fn block_size_table_satisfies_allocator_invariants() {
         assert!(block_size_invariants_hold());
+    }
+
+    #[test_case]
+    fn new_allocator_starts_uninitialized() {
+        let allocator = FixedSizeBlockAllocator::new();
+
+        assert!(!allocator.is_initialized());
+    }
+
+    #[test_case]
+    fn allocation_before_init_returns_null() {
+        let allocator = Locked::new(FixedSizeBlockAllocator::new());
+        let layout = Layout::from_size_align(8, 8).unwrap();
+
+        let ptr = unsafe { GlobalAlloc::alloc(&allocator, layout) };
+
+        assert!(ptr.is_null());
+    }
+
+    #[test_case]
+    fn init_marks_allocator_initialized() {
+        #[repr(align(16))]
+        #[allow(dead_code)]
+        struct TestHeap([u8; 4096]);
+
+        static mut TEST_HEAP: TestHeap = TestHeap([0; 4096]);
+
+        let mut allocator = FixedSizeBlockAllocator::new();
+        let heap_start = ptr::addr_of_mut!(TEST_HEAP) as *mut u8 as usize;
+
+        unsafe {
+            allocator.init(heap_start, 4096);
+        }
+
+        assert!(allocator.is_initialized());
     }
 
     #[test_case]
