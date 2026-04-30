@@ -24,6 +24,10 @@ use x86_64::VirtAddr;
 
 entry_point!(kernel_main);
 
+async fn loop_initialized_log() {
+    println!("Loop initialized!");
+}
+
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("Starting Toy-OS!");
     toy_os::init();
@@ -42,8 +46,10 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     CpuBrandString::read().expect("cpu brand string read failed").print();
 
     let mut executor = Executor::new();
+    executor.spawn(Task::new(loop_initialized_log()));
     executor.spawn(Task::new(print_keypresses()));
     println!("Toy-OS started");
+    println!("Initializing loop...");
 
     executor.run();
 }
