@@ -1,0 +1,6 @@
+[cargo]
+extraArgs = ["-Z", "json-target-spec"]
+metadataExtraArgs = ["-Zjson-target-spec"]
+
+[cargo.extraEnv]
+RUSTUP_TOOLCHAIN = "nightly"
