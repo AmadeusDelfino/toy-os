@@ -7,13 +7,19 @@ extern crate alloc;
 
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
-use toy_os::asynchronous::executor::Executor;
-use toy_os::asynchronous::Task;
-use toy_os::cpu::info::{CpuBrandString, CpuTopology};
-use toy_os::keyboard::print_keypresses;
-use toy_os::memory::allocator::init_heap;
-use toy_os::memory::frame::BootInfoFrameAllocator;
-use toy_os::{memory, println};
+use toy_os::{
+    asynchronous::{
+        Task, executor::Executor
+    },
+    cpu::info::{
+        CpuBrandString, CpuTopology
+    },
+    keyboard::print_keypresses,
+    memory::{
+        allocator::init_heap, frame::BootInfoFrameAllocator, init as memory_init
+    },
+    println
+};
 use x86_64::VirtAddr;
 
 entry_point!(kernel_main);
@@ -26,7 +32,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     test_main();
 
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    let mut memory_mapper = unsafe { memory::init(phys_mem_offset) };
+    let mut memory_mapper = unsafe { memory_init(phys_mem_offset) };
     let mut frame_allocator = unsafe {
         BootInfoFrameAllocator::init(&boot_info.memory_map)
     };
@@ -37,9 +43,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     let mut executor = Executor::new();
     executor.spawn(Task::new(print_keypresses()));
-    executor.spawn(Task::new(print_keypresses()));
     println!("Toy-OS started");
-
 
     executor.run();
 }
