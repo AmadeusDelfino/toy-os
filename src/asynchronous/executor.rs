@@ -1,14 +1,86 @@
+//! Cooperative async executor used by the kernel's main loop.
+//!
+//! The executor owns all spawned kernel tasks and polls only tasks whose
+//! `TaskId` appears in `task_queue`. Futures make progress by returning
+//! `Poll::Pending` after registering the provided `Waker`; when the event they
+//! depend on happens, that waker re-enqueues the task ID. This keeps idle tasks
+//! out of the polling hot path and lets interrupt-driven producers, such as the
+//! keyboard scancode path, wake a task that registered interest in the event.
+//!
+//! ## Scheduling model
+//!
+//! - Scheduling is cooperative. A task runs until its future returns
+//!   `Poll::Pending` or `Poll::Ready(())`; there is no preemption, time slicing,
+//!   priority, or per-task budget here.
+//! - `spawn` inserts a task into `tasks` and immediately marks it ready by
+//!   pushing its ID into `task_queue`.
+//! - `run_ready_tasks` drains the ready queue. IDs for completed or removed
+//!   tasks are ignored, which also makes duplicate wakeups harmless apart from
+//!   the extra queue entries they consume.
+//! - Completed tasks are removed together with their cached `Waker`. The current
+//!   task abstraction only supports `Future<Output = ()>`, so there is no result
+//!   propagation or join handle.
+//!
+//! ## Wake contract
+//!
+//! A `Waker` created by this executor does not poll directly. It only pushes the
+//! corresponding `TaskId` into `task_queue`; the main executor loop performs the
+//! actual poll later. This is the boundary that allows wakeups from interrupt
+//! context without touching the `tasks` map or the `waker_cache`.
+//!
+//! Futures must follow the normal async contract: before returning
+//! `Poll::Pending`, they must arrange for the supplied waker to be called once
+//! progress is possible. If a future returns `Pending` without registering a
+//! wake path, it can sleep forever. If it wakes repeatedly before being polled,
+//! the queue can contain duplicate IDs.
+//!
+//! ## Idle and interrupt contract
+//!
+//! `sleep_if_idle` disables interrupts before checking whether the ready queue
+//! is empty. This ordering prevents a lost-wakeup race where an interrupt wakes a
+//! task after the empty check but before `hlt`; in that race the CPU could go to
+//! sleep even though work is already queued. When the queue is empty,
+//! `enable_and_hlt` atomically enables interrupts and halts until the next
+//! interrupt. When work is queued, interrupts are simply re-enabled and the loop
+//! polls again.
+//!
+//! The executor itself is single-threaded and owns `tasks`/`waker_cache`
+//! exclusively. Only `task_queue` is shared with wakers, so any future change
+//! that lets wakeups mutate executor-owned state must revisit the interrupt and
+//! locking story deliberately.
+//!
+//! ## Capacity and initialization
+//!
+//! `task_queue` is bounded to 100 entries. A wake when the queue is full panics
+//! today, so adding high-frequency wake sources, many tasks, or wake storms
+//! requires revisiting the capacity/backpressure policy instead of assuming
+//! enqueue always succeeds.
+//!
+//! Construct the executor only after heap allocation is initialized. Tasks are
+//! heap-backed, wakers are stored in `Arc`s, and the queue/map structures also
+//! rely on allocation.
+
 use super::{Task, TaskId};
 use alloc::task::Wake;
 use alloc::{collections::BTreeMap, sync::Arc};
 use core::task::{Context, Poll, Waker};
 use crossbeam_queue::ArrayQueue;
 
+/// Waker implementation for one task.
+///
+/// Clones of the resulting `Waker` may be held by futures or interrupt-facing
+/// helpers. Waking is intentionally limited to enqueueing `task_id`; polling
+/// remains centralized in `Executor::run_ready_tasks`.
 struct TaskWaker {
     task_id: TaskId,
     task_queue: Arc<ArrayQueue<TaskId>>,
 }
 
+/// Minimal executor for heap-backed kernel async tasks.
+///
+/// `tasks` is the ownership map, `task_queue` is the ready set represented as a
+/// FIFO queue of task IDs, and `waker_cache` keeps stable wakers so futures are
+/// not forced to allocate a fresh `Arc<TaskWaker>` on every poll.
 pub struct Executor {
     tasks: BTreeMap<TaskId, Task>,
     task_queue: Arc<ArrayQueue<TaskId>>,
@@ -23,6 +95,7 @@ impl TaskWaker {
         }))
     }
 
+    /// Marks the associated task ready to be polled by the main executor loop.
     fn wake_task(&self) {
         self.task_queue.push(self.task_id).expect("task_queue full");
     }
@@ -57,6 +130,9 @@ impl Executor {
     fn sleep_if_idle(&self) {
         use x86_64::instructions::interrupts::{self, enable_and_hlt};
 
+        // Keep interrupts disabled between the empty check and `hlt` so an
+        // interrupt cannot enqueue work in the gap and leave the CPU asleep
+        // with a ready task already waiting.
         interrupts::disable();
         if self.task_queue.is_empty() {
             enable_and_hlt();
@@ -86,6 +162,10 @@ impl Executor {
                 Some(task) => task,
                 None => continue, // task no longer exists
             };
+
+            // Reuse wakers across polls. Besides avoiding repeated allocation,
+            // this gives futures a stable waker identity for comparisons such
+            // as `Waker::will_wake`.
             let waker = waker_cache
                 .entry(task_id)
                 .or_insert_with(|| TaskWaker::new(task_id, task_queue.clone()));
