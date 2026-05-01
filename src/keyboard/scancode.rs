@@ -3,8 +3,8 @@ use conquer_once::spin::OnceCell;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use crossbeam_queue::ArrayQueue;
-use futures_util::task::AtomicWaker;
 use futures_util::Stream;
+use futures_util::task::AtomicWaker;
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();
@@ -32,7 +32,8 @@ pub struct ScancodeStream {
 
 impl ScancodeStream {
     pub fn new() -> Self {
-        SCANCODE_QUEUE.try_init_once(|| ArrayQueue::new(100))
+        SCANCODE_QUEUE
+            .try_init_once(|| ArrayQueue::new(100))
             .expect("ScancodeStream::new should only be called once");
         ScancodeStream { _private: () }
     }

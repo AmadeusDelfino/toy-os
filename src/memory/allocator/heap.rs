@@ -2,10 +2,10 @@ use super::ALLOCATOR;
 use crate::memory::{HEAP_SIZE, HEAP_START};
 use crate::println;
 use x86_64::{
-    structures::paging::{
-        mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB,
-    },
     VirtAddr,
+    structures::paging::{
+        FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB, mapper::MapToError,
+    },
 };
 
 /// Maps the kernel heap range and initializes the global heap allocator.

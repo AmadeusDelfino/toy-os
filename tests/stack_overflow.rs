@@ -6,8 +6,8 @@
 #![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
-use toy_os::{exit_qemu, serial_print, serial_println, QemuExitCode};
 use lazy_static::lazy_static;
+use toy_os::{QemuExitCode, exit_qemu, serial_print, serial_println};
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 #[unsafe(no_mangle)]
@@ -28,7 +28,8 @@ lazy_static! {
         unsafe {
             idt.double_fault
                 .set_handler_fn(test_double_fault_handler)
-                .set_stack_index(toy_os::cpu::tss::DOUBLE_FAULT_IST_INDEX);        }
+                .set_stack_index(toy_os::cpu::tss::DOUBLE_FAULT_IST_INDEX);
+        }
 
         idt
     };

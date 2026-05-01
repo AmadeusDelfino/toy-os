@@ -8,10 +8,10 @@ pub use heap::init_heap;
 #[global_allocator]
 static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
 
-/// Prints the current fixed-size bucket free-list counts.
+/// Prints bounded fixed-size bucket free-list diagnostics.
 ///
 /// This is the intentional diagnostic entry point for allocator internals. Code
 /// outside this module should not lock the global allocator directly.
 pub fn debug_print_free_lists() {
-    ALLOCATOR.lock().list_blocks();
+    ALLOCATOR.lock().print_free_list_diagnostics();
 }

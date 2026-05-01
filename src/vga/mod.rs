@@ -1,13 +1,13 @@
+pub mod buffer;
 pub mod color;
 pub mod writer;
-pub mod buffer;
 
+pub use buffer::*;
+pub use color::*;
+use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
-use core::fmt;
-pub use color::*;
 pub use writer::*;
-pub use buffer::*;
 
 const VGA_BUFFER_ADDRESS: u32 = 0xb8000;
 

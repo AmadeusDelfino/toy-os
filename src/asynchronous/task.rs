@@ -4,7 +4,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use core::task::{Context, Poll};
 
 pub struct Task {
-    future: Pin<Box<dyn Future<Output=()>>>,
+    future: Pin<Box<dyn Future<Output = ()>>>,
     id: TaskId,
 }
 
@@ -12,7 +12,7 @@ pub struct Task {
 pub struct TaskId(u64);
 
 impl Task {
-    pub fn new(future: impl Future<Output=()> + 'static) -> Task {
+    pub fn new(future: impl Future<Output = ()> + 'static) -> Task {
         Task {
             id: TaskId::new(),
             future: Box::pin(future),

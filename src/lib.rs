@@ -12,13 +12,13 @@ extern crate alloc;
 use bootloader::entry_point;
 use core::{alloc::Layout, panic::PanicInfo};
 
+pub mod asynchronous;
+pub mod cpu;
+pub mod keyboard;
+pub mod lock;
+pub mod memory;
 pub mod serial;
 pub mod vga;
-pub mod cpu;
-pub mod lock;
-pub mod asynchronous;
-pub mod memory;
-pub mod keyboard;
 
 #[cfg(test)]
 entry_point!(test_kernel_main);

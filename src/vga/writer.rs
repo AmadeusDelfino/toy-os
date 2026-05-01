@@ -1,5 +1,5 @@
+use crate::vga::{BUFFER_HEIGHT, BUFFER_WIDTH, Buffer, ColorCode, ScreenChar};
 use core::fmt;
-use crate::vga::{Buffer, ColorCode, ScreenChar, BUFFER_HEIGHT, BUFFER_WIDTH};
 
 pub struct Writer {
     pub column_position: usize,
@@ -16,7 +16,6 @@ impl Writer {
                 // not part of the printable ASCII range
                 _ => self.write_byte(0xfe),
             }
-
         }
     }
 

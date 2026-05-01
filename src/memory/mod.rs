@@ -1,6 +1,6 @@
-pub mod table;
-pub mod frame;
 pub mod allocator;
+pub mod frame;
+pub mod table;
 
 pub use table::*;
 

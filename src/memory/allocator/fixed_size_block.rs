@@ -59,8 +59,18 @@
 //! this normal-IRQ policy. If future kernel code needs allocation from normal
 //! IRQ context, the locking policy or allocator design must be changed
 //! deliberately before that use.
+//!
+//! ## Diagnostics contract
+//!
+//! Free-list diagnostics are exposed through
+//! `memory::allocator::debug_print_free_lists`, which acquires the global
+//! allocator lock before inspecting allocator internals. The diagnostic path
+//! separates collection from printing, does not allocate, and bounds traversal
+//! by bucket so a corrupted or cyclic free list is reported instead of looping
+//! forever.
 
 use super::Locked;
+use crate::memory::HEAP_SIZE;
 use crate::println;
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::mem::{align_of, size_of};
@@ -72,6 +82,19 @@ const BLOCK_SIZES: &[usize] = &[8, 16, 32, 64, 128, 256, 512, 1024, 2048];
 enum SizeClass {
     Bucket { index: usize, block_size: usize },
     Fallback,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum FreeListCount {
+    Complete(usize),
+    ExceededLimit { traversed: usize },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct BucketDiagnostics {
+    bucket_index: usize,
+    block_size: usize,
+    count: FreeListCount,
 }
 
 fn classify_layout(layout: &Layout) -> SizeClass {
@@ -125,6 +148,28 @@ const fn block_size_invariants_hold() -> bool {
     true
 }
 
+fn free_list_traversal_limit(block_size: usize) -> usize {
+    HEAP_SIZE / block_size + 1
+}
+
+fn count_free_list(mut current: *mut ListNode, limit: usize) -> FreeListCount {
+    let mut traversed = 0;
+
+    while !current.is_null() {
+        if traversed >= limit {
+            return FreeListCount::ExceededLimit { traversed };
+        }
+
+        traversed += 1;
+        // SAFETY: Diagnostic traversal reads the intrusive free-list links.
+        // Callers must pass a free-list head from allocator state while the
+        // allocator lock is held, or a test-owned list.
+        current = unsafe { (*current).next };
+    }
+
+    FreeListCount::Complete(traversed)
+}
+
 const _: () = assert!(block_size_invariants_hold());
 
 pub struct FixedSizeBlockAllocator {
@@ -167,18 +212,32 @@ impl FixedSizeBlockAllocator {
         }
     }
 
-    pub fn list_blocks(&self) {
-        for (i, &head) in self.list_heads.iter().enumerate() {
-            println!("bucket[{}] ({}B): ", i, BLOCK_SIZES[i]);
-            let mut current = head;
-            let mut count = 0;
-            while !current.is_null() {
-                count += 1;
-                // SAFETY: Non-null entries in a free list must point to
-                // `ListNode`s previously written by `dealloc`.
-                current = unsafe { (*current).next };
+    fn collect_free_list_diagnostics(&self) -> [BucketDiagnostics; BLOCK_SIZES.len()] {
+        core::array::from_fn(|index| {
+            let block_size = BLOCK_SIZES[index];
+            BucketDiagnostics {
+                bucket_index: index,
+                block_size,
+                count: count_free_list(
+                    self.list_heads[index],
+                    free_list_traversal_limit(block_size),
+                ),
             }
-            println!("{} blocks", count);
+        })
+    }
+
+    pub(super) fn print_free_list_diagnostics(&self) {
+        for diagnostic in self.collect_free_list_diagnostics() {
+            match diagnostic.count {
+                FreeListCount::Complete(free_blocks) => println!(
+                    "bucket={} block_size={} free_blocks={} status=ok",
+                    diagnostic.bucket_index, diagnostic.block_size, free_blocks
+                ),
+                FreeListCount::ExceededLimit { traversed } => println!(
+                    "bucket={} block_size={} traversed={} status=possible_cycle_or_corruption",
+                    diagnostic.bucket_index, diagnostic.block_size, traversed
+                ),
+            }
         }
     }
 }
@@ -329,5 +388,73 @@ mod tests {
             classify_layout(&Layout::from_size_align(4, 4096).unwrap()),
             SizeClass::Fallback
         );
+    }
+
+    #[test_case]
+    fn count_free_list_returns_zero_for_empty_list() {
+        assert_eq!(
+            count_free_list(ptr::null_mut(), 3),
+            FreeListCount::Complete(0)
+        );
+    }
+
+    #[test_case]
+    fn count_free_list_counts_a_small_list() {
+        let mut third = ListNode {
+            next: ptr::null_mut(),
+        };
+        let mut second = ListNode {
+            next: &mut third as *mut ListNode,
+        };
+        let mut first = ListNode {
+            next: &mut second as *mut ListNode,
+        };
+
+        assert_eq!(
+            count_free_list(&mut first as *mut ListNode, 4),
+            FreeListCount::Complete(3)
+        );
+    }
+
+    #[test_case]
+    fn count_free_list_stops_when_limit_is_exceeded() {
+        let mut first = ListNode {
+            next: ptr::null_mut(),
+        };
+        let mut second = ListNode {
+            next: &mut first as *mut ListNode,
+        };
+        first.next = &mut second as *mut ListNode;
+
+        assert_eq!(
+            count_free_list(&mut first as *mut ListNode, 2),
+            FreeListCount::ExceededLimit { traversed: 2 }
+        );
+    }
+
+    #[test_case]
+    fn free_list_traversal_limit_is_derived_from_heap_size() {
+        assert_eq!(
+            free_list_traversal_limit(8),
+            crate::memory::HEAP_SIZE / 8 + 1
+        );
+        assert_eq!(
+            free_list_traversal_limit(2048),
+            crate::memory::HEAP_SIZE / 2048 + 1
+        );
+    }
+
+    #[test_case]
+    fn collect_free_list_diagnostics_reports_empty_buckets() {
+        let allocator = FixedSizeBlockAllocator::new();
+        let diagnostics = allocator.collect_free_list_diagnostics();
+
+        assert_eq!(diagnostics.len(), BLOCK_SIZES.len());
+
+        for (index, diagnostic) in diagnostics.iter().enumerate() {
+            assert_eq!(diagnostic.bucket_index, index);
+            assert_eq!(diagnostic.block_size, BLOCK_SIZES[index]);
+            assert_eq!(diagnostic.count, FreeListCount::Complete(0));
+        }
     }
 }

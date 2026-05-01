@@ -1,5 +1,5 @@
+use crate::vga::ColorCode;
 use volatile::Volatile;
-use crate::vga::{ColorCode};
 
 pub const BUFFER_HEIGHT: usize = 25;
 pub const BUFFER_WIDTH: usize = 80;
@@ -34,7 +34,7 @@ fn test_println_many() {
 
 #[test_case]
 fn test_println_output() {
-    use crate::{println};
+    use crate::println;
     use crate::vga::DISPLAY;
 
     let s = "Some test string that fits on a single line";
