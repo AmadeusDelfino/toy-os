@@ -1,15 +1,18 @@
 {
-  "lsp": {
-    "rust-analyzer": {
-      "initialization_options": {
-        "cargo": {
-          "extraArgs": ["-Z", "json-target-spec"],
-          "metadataExtraArgs": ["-Zjson-target-spec"],
-          "extraEnv": {
-            "RUSTUP_TOOLCHAIN": "nightly"
-          }
+    "lsp": {
+        "rust-analyzer": {
+            "initialization_options": {
+                "cargo": {
+                    "extraArgs": ["-Z", "json-target-spec"],
+                    "metadataExtraArgs": ["-Zjson-target-spec"],
+                    "extraEnv": {
+                        "RUSTUP_TOOLCHAIN": "nightly"
+                    },
+                    "rustfmt": {
+                        "extraArgs": ["+nightly"]
+                    }
+                }
+            }
         }
-      }
     }
-  }
 }
