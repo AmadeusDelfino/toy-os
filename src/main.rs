@@ -11,7 +11,11 @@ use toy_os::{
     asynchronous::{Task, executor::Executor},
     cpu::info::{CpuBrandString, CpuTopology},
     keyboard::print_keypresses,
-    memory::{allocator::{debug_print_free_lists, init_heap}, frame::BootInfoFrameAllocator, init as memory_init},
+    memory::{
+        allocator::{debug_print_free_lists, init_heap},
+        frame::BootInfoFrameAllocator,
+        init as memory_init,
+    },
     println,
 };
 use x86_64::VirtAddr;

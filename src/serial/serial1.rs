@@ -1,14 +1,15 @@
+use crate::lock::LockedIrq;
 use lazy_static::lazy_static;
-use spin::Mutex;
 use uart_16550::SerialPort;
 
 const SERIAL_PORT_ADDRESS: u16 = 0x3F8;
 
 lazy_static! {
-    pub static ref SERIAL1: Mutex<SerialPort> = {
+    pub static ref SERIAL1: LockedIrq<SerialPort> = {
         let mut serial_port = unsafe { SerialPort::new(SERIAL_PORT_ADDRESS) };
         serial_port.init();
-        Mutex::new(serial_port)
+
+        LockedIrq::new(serial_port)
     };
 }
 
