@@ -17,6 +17,10 @@
 //! - Once a block has been assigned to a bucket, freeing it returns it to that
 //!   bucket's free list. Bucket blocks are not returned to the fallback heap (I don't
 //!   wanna suffer with manual allocation now).
+//! - If the fallback heap cannot satisfy a request, or if allocation is
+//!   attempted before heap initialization, `alloc` returns null. That is the
+//!   expected `GlobalAlloc` OOM/pre-init signal; it is not memory corruption by
+//!   itself.
 //!
 //! ## Caller contract
 //!

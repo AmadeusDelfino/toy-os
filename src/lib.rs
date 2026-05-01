@@ -2,6 +2,7 @@
 #![cfg_attr(test, no_main)]
 #![feature(custom_test_frameworks)]
 #![feature(abi_x86_interrupt)]
+#![feature(alloc_error_handler)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
@@ -9,7 +10,7 @@ extern crate alloc;
 
 #[cfg(test)]
 use bootloader::entry_point;
-use core::panic::PanicInfo;
+use core::{alloc::Layout, panic::PanicInfo};
 
 pub mod serial;
 pub mod vga;
@@ -64,6 +65,12 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     serial_println!("Error: {}\n", info);
     exit_qemu(QemuExitCode::Failed);
 
+    hlt_loop();
+}
+
+#[alloc_error_handler]
+fn alloc_error(_layout: Layout) -> ! {
+    println!("heap allocation failed: OOM or heap used before init");
     hlt_loop();
 }
 
