@@ -1,10 +1,38 @@
+use x86_64::registers::model_specific::Msr;
+
 use crate::println;
 use core::arch::x86_64::__cpuid_count;
+
+const CPUID_EXTENDED_FEATURES_LEAF: u32 = 0x80000000;
+const CPUID_BRAND_STRING_FIRST_LEAF: u32 = 0x80000002;
+const CPUID_BRAND_STRING_LAST_LEAF: u32 = 0x80000004;
+const CPUID_BRAND_STRING_LEAF_COUNT: u32 = 3;
+const CPUID_BRAND_STRING_BYTE_LEN: usize = 48;
+const CPUID_BRAND_STRING_BYTES_PER_LEAF: usize = 16;
+const CPUID_REGISTER_BYTE_LEN: usize = 4;
+const CPUID_DEFAULT_SUBLEAF: u32 = 0;
+
+const CPUID_EXTENDED_TOPOLOGY_LEAF: u32 = 0xB;
+const CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_SHIFT: u32 = 8;
+const CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_MASK: u32 = 0xFF;
+const CPUID_EXTENDED_TOPOLOGY_LOGICAL_PROCESSOR_COUNT_MASK: u32 = 0xFFFF;
+const CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_INVALID: u32 = 0;
+const CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_SMT: u32 = 1;
+const CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_CORE: u32 = 2;
+
+const CPUID_FEATURE_INFO_LEAF: u32 = 0x1;
+const CPUID_FEATURE_INFO_SUBLEAF: u32 = 0;
+const CPUID_FEATURE_INFO_EDX_APIC: u32 = 1 << 9;
+const CPUID_FEATURE_INFO_ECX_X2APIC: u32 = 1 << 21;
+
+const IA32_APIC_BASE_MSR: u32 = 0x1B;
+const IA32_APIC_BASE_X2APIC_ENABLE: u64 = 1 << 10;
+const IA32_APIC_BASE_APIC_GLOBAL_ENABLE: u64 = 1 << 11;
 
 /// 48-byte brand string from CPUID leaves 0x80000002 - 0x80000004.
 #[derive(Debug)]
 pub struct CpuBrandString {
-    buf: [u8; 48],
+    buf: [u8; CPUID_BRAND_STRING_BYTE_LEN],
     len: usize,
 }
 
@@ -14,22 +42,26 @@ impl CpuBrandString {
     }
 
     pub fn read() -> Option<Self> {
-        let max_ext = __cpuid_count(0x80000000, 0).eax;
+        let max_ext = __cpuid_count(CPUID_EXTENDED_FEATURES_LEAF, CPUID_DEFAULT_SUBLEAF).eax;
         // check ext leaves
-        if max_ext < 0x80000004 {
+        if max_ext < CPUID_BRAND_STRING_LAST_LEAF {
             return None;
         }
 
-        let mut buf = [0u8; 48];
+        let mut buf = [0u8; CPUID_BRAND_STRING_BYTE_LEN];
 
-        for i in 0u32..3 {
-            let result = __cpuid_count(0x80000002 + i, 0);
+        for i in 0u32..CPUID_BRAND_STRING_LEAF_COUNT {
+            let result = __cpuid_count(CPUID_BRAND_STRING_FIRST_LEAF + i, CPUID_DEFAULT_SUBLEAF);
 
-            let offset = (i as usize) * 16;
-            buf[offset..offset + 4].copy_from_slice(&result.eax.to_le_bytes());
-            buf[offset + 4..offset + 8].copy_from_slice(&result.ebx.to_le_bytes());
-            buf[offset + 8..offset + 12].copy_from_slice(&result.ecx.to_le_bytes());
-            buf[offset + 12..offset + 16].copy_from_slice(&result.edx.to_le_bytes());
+            let offset = (i as usize) * CPUID_BRAND_STRING_BYTES_PER_LEAF;
+            buf[offset..offset + CPUID_REGISTER_BYTE_LEN]
+                .copy_from_slice(&result.eax.to_le_bytes());
+            buf[offset + CPUID_REGISTER_BYTE_LEN..offset + CPUID_REGISTER_BYTE_LEN * 2]
+                .copy_from_slice(&result.ebx.to_le_bytes());
+            buf[offset + CPUID_REGISTER_BYTE_LEN * 2..offset + CPUID_REGISTER_BYTE_LEN * 3]
+                .copy_from_slice(&result.ecx.to_le_bytes());
+            buf[offset + CPUID_REGISTER_BYTE_LEN * 3..offset + CPUID_BRAND_STRING_BYTES_PER_LEAF]
+                .copy_from_slice(&result.edx.to_le_bytes());
         }
 
         let len = buf
@@ -51,14 +83,36 @@ pub struct CpuTopology {
     pub threads_per_core: u16,
     pub logical_processors: u16,
     pub cores: u16,
+    pub apic_supported: bool,
+    pub x2apic_supported: bool,
     pub apic_enabled: bool,
+    pub x2apic_enabled: bool,
 }
 
 impl CpuTopology {
     pub fn print(&self) {
         println!(
-            "CPU topology. Cores ({}) | Threads ({})",
-            self.cores, self.logical_processors
+            "
+CPU topology
+Cores ({})
+Threads ({})
+----------
+
+APIC
+Supported ({})
+Enabled ({})
+----------
+
+x2APIC
+Supported ({})
+Enabled ({})
+",
+            self.cores,
+            self.logical_processors,
+            self.apic_supported,
+            self.apic_enabled,
+            self.x2apic_supported,
+            self.x2apic_enabled
         );
     }
 
@@ -67,20 +121,21 @@ impl CpuTopology {
         let mut logical_processors = 1u16;
 
         for sub_leaf in 0u32.. {
-            let result = __cpuid_count(0xB, sub_leaf);
+            let result = __cpuid_count(CPUID_EXTENDED_TOPOLOGY_LEAF, sub_leaf);
 
-            let level_type = (result.ecx >> 8) & 0xFF;
+            let level_type = (result.ecx >> CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_SHIFT)
+                & CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_MASK;
 
             // level_type 0 = invalid
-            if level_type == 0 {
+            if level_type == CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_INVALID {
                 break;
             }
 
-            let count = (result.ebx & 0xFFFF) as u16;
+            let count = (result.ebx & CPUID_EXTENDED_TOPOLOGY_LOGICAL_PROCESSOR_COUNT_MASK) as u16;
 
             match level_type {
-                1 => threads_per_core = count,   // SMT
-                2 => logical_processors = count, // Core
+                CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_SMT => threads_per_core = count,
+                CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_CORE => logical_processors = count,
                 _ => {}
             }
         }
@@ -89,11 +144,27 @@ impl CpuTopology {
             return None;
         }
 
+        // CPUID leaf 0x1 reports APIC support in EDX bit 9.
+        // Build a mask with only bit 9 set: 1 << 9.
+        // If EDX has bit 9 set, the AND result is non-zero.
+        // If EDX has bit 9 clear, the AND result is zero.
+        // x2apic follows the same logic, but check bit 21 in ecx
+        let apic_support_info = __cpuid_count(CPUID_FEATURE_INFO_LEAF, CPUID_FEATURE_INFO_SUBLEAF);
+        let apic_supported = (apic_support_info.edx & CPUID_FEATURE_INFO_EDX_APIC) != 0;
+        let x2apic_supported = (apic_support_info.ecx & CPUID_FEATURE_INFO_ECX_X2APIC) != 0;
+
+        let apic_base = unsafe { Msr::new(IA32_APIC_BASE_MSR).read() };
+        let x2apic_enabled = (apic_base & IA32_APIC_BASE_X2APIC_ENABLE) != 0;
+        let apic_enabled = (apic_base & IA32_APIC_BASE_APIC_GLOBAL_ENABLE) != 0;
+
         Some(Self {
             threads_per_core,
             logical_processors,
+            apic_supported,
+            x2apic_supported,
+            apic_enabled,
+            x2apic_enabled,
             cores: logical_processors / threads_per_core,
-            apic_enabled: false,
         })
     }
 }
