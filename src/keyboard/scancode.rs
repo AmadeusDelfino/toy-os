@@ -9,9 +9,11 @@ use futures_util::Stream;
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();
 
-/// Called by the keyboard interrupt handler
+/// Called by the keyboard interrupt handler.
 ///
-/// Must not block or allocate.
+/// This function runs in normal external IRQ context. It must not block or
+/// allocate; keep all storage preallocated and push only into the static
+/// scancode queue.
 pub(crate) fn add_scancode(scancode: u8) {
     if let Ok(queue) = SCANCODE_QUEUE.try_get() {
         if let Err(_) = queue.push(scancode) {

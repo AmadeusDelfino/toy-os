@@ -50,12 +50,15 @@
 //!
 //! The allocator is installed through `Locked<FixedSizeBlockAllocator>`, so
 //! normal access is serialized by the global lock. The lock is a `spin::Mutex`;
-//! it does not disable interrupts. Interrupt handlers must not allocate while
-//! the kernel follows the current locking policy, because an interrupt that
-//! re-enters the allocator while interrupted code holds the lock can deadlock.
+//! it does not disable interrupts. Normal external IRQ handlers must not
+//! allocate while the kernel follows the current locking policy, because an IRQ
+//! that re-enters the allocator while interrupted code holds the lock can
+//! deadlock.
 //!
-//! If future kernel code needs allocation from interrupt context, the locking
-//! policy or allocator design must be changed deliberately before that use.
+//! Exception and fault handlers are terminal diagnostic paths and are outside
+//! this normal-IRQ policy. If future kernel code needs allocation from normal
+//! IRQ context, the locking policy or allocator design must be changed
+//! deliberately before that use.
 
 use super::Locked;
 use crate::println;

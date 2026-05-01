@@ -1,3 +1,20 @@
+//! CPU exception and interrupt descriptor-table setup.
+//!
+//! ## External IRQ allocation policy
+//!
+//! Normal external IRQ handlers, such as timer, keyboard, and future driver
+//! interrupts, must not allocate or block. The global heap allocator is guarded
+//! by a `spin::Mutex`, which does not disable interrupts; allocating from an IRQ
+//! can deadlock if the interrupted code already holds the allocator lock.
+//!
+//! IRQ handlers should hand work to preallocated/static structures, bounded
+//! lock-free queues, or other explicitly non-allocating paths. Do not use
+//! `Box`, `Vec`, `Arc`, `BTreeMap`, `String`, `format!`, or APIs that may
+//! allocate from normal external IRQ context.
+//!
+//! Exception and fault handlers are terminal diagnostic paths in the current
+//! kernel and are intentionally outside this normal-IRQ policy.
+
 pub mod pic8259;
 pub use self::pic8259::*;
 
