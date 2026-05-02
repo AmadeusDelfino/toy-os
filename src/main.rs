@@ -9,16 +9,15 @@ use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
 use toy_os::{
     asynchronous::{Task, executor::Executor},
-    cpu::CPU,
+    cpu::{CPU, interrupts::apic::APIC},
     keyboard::print_keypresses,
     memory::{
-        allocator::init_heap,
-        frame::BootInfoFrameAllocator,
-        init as memory_init,
+        allocator::init_heap, frame::BootInfoFrameAllocator, init as memory_init,
+        map_phys_frame_to_virt_page,
     },
     println,
 };
-use x86_64::VirtAddr;
+use x86_64::{VirtAddr, structures::paging::PageTableFlags};
 
 entry_point!(kernel_main);
 
@@ -37,11 +36,33 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     let mut memory_mapper = unsafe { memory_init(phys_mem_offset) };
     let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_map) };
     init_heap(&mut memory_mapper, &mut frame_allocator).expect("heap initialization failed");
-
     let cpu = CPU::new();
 
     cpu.brand.print();
     cpu.topology.print();
+
+    if !cpu.topology.apic_supported {
+        panic!("APIC not supported");
+    }
+
+    if cpu.topology.x2apic_enabled {
+        panic!("x2APIC enabled. Kernel only supports xAPIC");
+    }
+    let apic_mem_page = map_phys_frame_to_virt_page(
+        &mut memory_mapper,
+        &mut frame_allocator,
+        cpu.topology.get_apic_mmio_phys_address(),
+        0x4444_0000_0000,
+        PageTableFlags::PRESENT
+            | PageTableFlags::WRITABLE
+            | PageTableFlags::WRITE_THROUGH
+            | PageTableFlags::NO_CACHE,
+    );
+    let apic = APIC::new(apic_mem_page);
+    let lapic_version = apic.version();
+    let lapic_id = apic.id();
+    println!("lapic_version: {}", lapic_version);
+    println!("lapic_id: {}", lapic_id);
 
     let mut executor = Executor::new();
     executor.spawn(Task::new(loop_initialized_log()));

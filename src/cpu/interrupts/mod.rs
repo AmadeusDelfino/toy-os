@@ -17,6 +17,7 @@
 
 pub mod pic8259;
 pub use self::pic8259::*;
+pub mod apic;
 
 use crate::cpu::tss;
 use crate::println;

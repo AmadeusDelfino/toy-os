@@ -28,6 +28,7 @@ const CPUID_FEATURE_INFO_ECX_X2APIC: u32 = 1 << 21;
 const IA32_APIC_BASE_MSR: u32 = 0x1B;
 const IA32_APIC_BASE_X2APIC_ENABLE: u64 = 1 << 10;
 const IA32_APIC_BASE_APIC_GLOBAL_ENABLE: u64 = 1 << 11;
+const IA32_APIC_BASE_XAPIC_BASE_MASK: u64 = 0xFFFF_F000;
 
 /// 48-byte brand string from CPUID leaves 0x80000002 - 0x80000004.
 #[derive(Debug)]
@@ -78,7 +79,7 @@ impl CpuBrandString {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct CpuTopology {
     pub threads_per_core: u16,
     pub logical_processors: u16,
@@ -114,6 +115,11 @@ Enabled ({})
             self.x2apic_supported,
             self.x2apic_enabled
         );
+    }
+
+    pub fn get_apic_mmio_phys_address(self) -> u64 {
+        let apic_base = unsafe { Msr::new(IA32_APIC_BASE_MSR).read() };
+        apic_base & IA32_APIC_BASE_XAPIC_BASE_MASK
     }
 
     pub fn read() -> Option<Self> {

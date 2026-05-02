@@ -180,7 +180,7 @@ pub struct FixedSizeBlockAllocator {
 
 impl FixedSizeBlockAllocator {
     pub const fn new() -> Self {
-        FixedSizeBlockAllocator {
+        Self {
             list_heads: [ptr::null_mut(); BLOCK_SIZES.len()],
             fallback_allocator: linked_list_allocator::Heap::empty(),
             initialized: false,
