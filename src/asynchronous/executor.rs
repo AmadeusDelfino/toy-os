@@ -180,7 +180,9 @@ impl Executor {
 //FIXME: Think about how to test the loop
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use spin::Mutex;
+
+use super::*;
 
     #[test_case]
     fn insert_task_when_call_spawn() {
@@ -196,5 +198,21 @@ mod tests {
         executor.run_ready_tasks();
         assert_eq!(executor.task_queue.len(), 0);
         assert_eq!(executor.waker_cache.len(), 0);
+    }
+
+    //FIXME: I need to think in a better name
+    #[test_case]
+    fn check_arc_reference_correctness() {
+        struct ArcTest {
+            pub number: u8,
+        }
+        let arc_test = Arc::new(Mutex::new(ArcTest { number: 0 }));
+        let mut executor = Executor::new();
+        let runner = async |larc: Arc<Mutex<ArcTest>>| {
+            larc.lock().number = 10;
+        };
+        executor.spawn(Task::new(runner(Arc::clone(&arc_test))));
+        executor.run_ready_tasks();
+        assert_eq!(arc_test.lock().number, 10);
     }
 }
