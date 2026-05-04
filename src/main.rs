@@ -65,7 +65,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     let lapic_id = apic.id();
     println!("lapic_version: {}", lapic_version);
     println!("lapic_id: {}", lapic_id);
-
+    apic.enable_spurious_vector();
     let mut executor = Executor::new();
     executor.spawn(Task::new(loop_initialized_log()));
     executor.spawn(Task::new(print_keypresses()));

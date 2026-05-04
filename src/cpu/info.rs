@@ -28,6 +28,7 @@ const CPUID_FEATURE_INFO_ECX_X2APIC: u32 = 1 << 21;
 const IA32_APIC_BASE_MSR: u32 = 0x1B;
 const IA32_APIC_BASE_X2APIC_ENABLE: u64 = 1 << 10;
 const IA32_APIC_BASE_APIC_GLOBAL_ENABLE: u64 = 1 << 11;
+const IA32_APIC_BASE_IS_BSP: u64 = 1 << 8;
 const IA32_APIC_BASE_XAPIC_BASE_MASK: u64 = 0xFFFF_F000;
 
 /// 48-byte brand string from CPUID leaves 0x80000002 - 0x80000004.
@@ -79,6 +80,7 @@ pub struct CpuTopology {
     pub threads_per_core: u16,
     pub logical_processors: u16,
     pub cores: u16,
+    pub is_bsp: bool,
     pub apic_supported: bool,
     pub x2apic_supported: bool,
     pub apic_enabled: bool,
@@ -89,6 +91,8 @@ impl CpuTopology {
     pub fn print(&self) {
         println!(
             "
+Is BSP: {}
+
 CPU topology
 Cores ({})
 Threads ({})
@@ -103,6 +107,7 @@ x2APIC
 Supported ({})
 Enabled ({})
 ",
+            self.is_bsp,
             self.cores,
             self.logical_processors,
             self.apic_supported,
@@ -157,6 +162,7 @@ Enabled ({})
         let apic_base = unsafe { Msr::new(IA32_APIC_BASE_MSR).read() };
         let x2apic_enabled = (apic_base & IA32_APIC_BASE_X2APIC_ENABLE) != 0;
         let apic_enabled = (apic_base & IA32_APIC_BASE_APIC_GLOBAL_ENABLE) != 0;
+        let is_bsp = (apic_base & IA32_APIC_BASE_IS_BSP) != 0;
 
         Some(Self {
             threads_per_core,
@@ -165,6 +171,7 @@ Enabled ({})
             x2apic_supported,
             apic_enabled,
             x2apic_enabled,
+            is_bsp,
             cores: logical_processors / threads_per_core,
         })
     }
