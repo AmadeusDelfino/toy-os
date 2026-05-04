@@ -139,9 +139,14 @@ impl Executor {
 
     pub fn spawn(&mut self, task: Task) {
         let task_id = task.id();
-        if self.tasks.insert(task_id, task).is_some() {
-            panic!("task with same ID already in tasks");
+
+        if self.tasks.get(&task_id).is_some() {
+            //FIXME Maybe... spawn -> Result<T, E>? Make sense? idk
+            panic!("task with same ID already in tasks ")
         }
+
+        self.tasks.insert(task_id, task);
+
         self.task_queue.push(task_id).expect("queue full");
     }
 
