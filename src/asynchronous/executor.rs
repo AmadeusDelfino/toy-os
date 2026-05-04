@@ -171,3 +171,25 @@ impl Executor {
         }
     }
 }
+
+//FIXME: Think about how to test the loop
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test_case]
+    fn insert_task_when_call_spawn() {
+        let mut executor = Executor::new();
+        executor.spawn(Task::new(async {}));
+        assert_eq!(executor.task_queue.len(), 1);
+    }
+
+    #[test_case]
+    fn check_run_ready_task_operation() {
+        let mut executor = Executor::new();
+        executor.spawn(Task::new(async {}));
+        executor.run_ready_tasks();
+        assert_eq!(executor.task_queue.len(), 0);
+        assert_eq!(executor.waker_cache.len(), 0);
+    }
+}

@@ -10,6 +10,8 @@ extern crate alloc;
 
 #[cfg(test)]
 use bootloader::entry_point;
+#[cfg(test)]
+use x86_64::VirtAddr;
 use core::{alloc::Layout, panic::PanicInfo};
 
 pub mod asynchronous;
@@ -19,6 +21,9 @@ pub mod lock;
 pub mod memory;
 pub mod serial;
 pub mod vga;
+
+#[cfg(test)]
+use crate::memory::{allocator::init_heap, frame::BootInfoFrameAllocator};
 
 #[cfg(test)]
 entry_point!(test_kernel_main);
@@ -75,8 +80,12 @@ fn alloc_error(_layout: Layout) -> ! {
 }
 
 #[cfg(test)]
-fn test_kernel_main(_boot_info: &'static bootloader::BootInfo) -> ! {
+fn test_kernel_main(boot_info: &'static bootloader::BootInfo) -> ! {
     init();
+    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let mut memory_mapper = unsafe { memory::init(phys_mem_offset) };
+    let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_map) };
+    init_heap(&mut memory_mapper, &mut frame_allocator).expect("heap initialization failed");
     test_main();
     hlt_loop();
 }
