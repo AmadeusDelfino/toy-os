@@ -5,10 +5,8 @@
 #![reexport_test_harness_main = "test_main"]
 extern crate alloc;
 
-use alloc::sync::Arc;
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
-use spin::Mutex;
 use toy_os::{
     asynchronous::{Task, executor::Executor},
     cpu::{CPU, interrupts::apic::APIC},

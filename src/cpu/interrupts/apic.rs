@@ -2,6 +2,10 @@ use core::ptr::{read_volatile, write_volatile};
 
 use x86_64::VirtAddr;
 
+const LAPIC_ID_OFFSET: u32 = 0x20;
+const LAPIC_ID_SHIFT: u32 = 24;
+const LAPIC_VERSION_OFFSET: u32 = 0x30;
+
 #[derive(Debug)]
 pub struct APIC {
     mimo_mem_virt_addr: VirtAddr,
@@ -23,10 +27,10 @@ impl APIC {
     }
 
     pub fn id(&self) -> u32 {
-        (self.read(0x20) >> 24) & 0xFF
+        (self.read(LAPIC_ID_OFFSET) >> LAPIC_ID_SHIFT) & 0xFF
     }
 
     pub fn version(&self) -> u32 {
-        self.read(0x30) & 0xFF
+        self.read(LAPIC_VERSION_OFFSET) & 0xFF
     }
 }
