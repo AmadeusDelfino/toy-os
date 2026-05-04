@@ -1,7 +1,17 @@
-use x86_64::structures::paging::{
-    FrameAllocator, Mapper, OffsetPageTable, Page, PageTableFlags, PhysFrame, Size4KiB,
+use x86_64::{
+    PhysAddr,
+    VirtAddr,
+    structures::paging::{
+        FrameAllocator,
+        Mapper,
+        OffsetPageTable,
+        Page,
+        PageTable,
+        PageTableFlags,
+        PhysFrame,
+        Size4KiB,
+    },
 };
-use x86_64::{PhysAddr, VirtAddr, structures::paging::PageTable};
 
 /// Initialize a new OffsetPageTable.
 ///

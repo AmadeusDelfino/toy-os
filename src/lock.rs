@@ -7,9 +7,7 @@ pub struct Locked<A> {
 
 impl<A> Locked<A> {
     pub const fn new(inner: A) -> Self {
-        Locked {
-            inner: spin::Mutex::new(inner),
-        }
+        Locked { inner: spin::Mutex::new(inner) }
     }
 
     pub fn lock(&self) -> spin::MutexGuard<'_, A> {
@@ -28,9 +26,7 @@ pub struct LockedIrqGuard<'a, A> {
 
 impl<A> LockedIrq<A> {
     pub const fn new(inner: A) -> Self {
-        Self {
-            inner: spin::Mutex::new(inner),
-        }
+        Self { inner: spin::Mutex::new(inner) }
     }
 
     pub fn lock(&self) -> LockedIrqGuard<'_, A> {
@@ -40,10 +36,7 @@ impl<A> LockedIrq<A> {
         interrupts::disable();
         let guard = self.inner.lock();
 
-        LockedIrqGuard {
-            saved_iflag,
-            guard: Some(guard),
-        }
+        LockedIrqGuard { saved_iflag, guard: Some(guard) }
     }
 }
 

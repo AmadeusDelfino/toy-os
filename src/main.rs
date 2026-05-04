@@ -7,14 +7,16 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use bootloader::{BootInfo, entry_point};
-use spin::Mutex;
 use core::panic::PanicInfo;
+use spin::Mutex;
 use toy_os::{
     asynchronous::{Task, executor::Executor},
     cpu::{CPU, interrupts::apic::APIC},
     keyboard::print_keypresses,
     memory::{
-        allocator::init_heap, frame::BootInfoFrameAllocator, init as memory_init,
+        allocator::init_heap,
+        frame::BootInfoFrameAllocator,
+        init as memory_init,
         map_phys_frame_to_virt_page,
     },
     println,
@@ -33,9 +35,7 @@ struct TestArc {
 
 impl TestArc {
     pub fn new() -> Self {
-        Self {
-            number: 1
-        }
+        Self { number: 1 }
     }
 
     pub fn get_n(&self) -> u64 {
@@ -46,7 +46,6 @@ impl TestArc {
         self.number = n;
     }
 }
-
 
 async fn test_arc_fn(data: Arc<Mutex<TestArc>>) {
     let mut l = data.lock();

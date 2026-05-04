@@ -61,8 +61,7 @@
 //! rely on allocation.
 
 use super::{Task, TaskId};
-use alloc::task::Wake;
-use alloc::{collections::BTreeMap, sync::Arc};
+use alloc::{collections::BTreeMap, sync::Arc, task::Wake};
 use core::task::{Context, Poll, Waker};
 use crossbeam_queue::ArrayQueue;
 
@@ -89,10 +88,7 @@ pub struct Executor {
 
 impl TaskWaker {
     fn new(task_id: TaskId, task_queue: Arc<ArrayQueue<TaskId>>) -> Waker {
-        Waker::from(Arc::new(TaskWaker {
-            task_id,
-            task_queue,
-        }))
+        Waker::from(Arc::new(TaskWaker { task_id, task_queue }))
     }
 
     /// Marks the associated task ready to be polled by the main executor loop.
@@ -151,11 +147,7 @@ impl Executor {
 
     fn run_ready_tasks(&mut self) {
         // destructure `self` to avoid borrow checker errors
-        let Self {
-            tasks,
-            task_queue,
-            waker_cache,
-        } = self;
+        let Self { tasks, task_queue, waker_cache } = self;
 
         while let Some(task_id) = task_queue.pop() {
             let task = match tasks.get_mut(&task_id) {
@@ -166,9 +158,7 @@ impl Executor {
             // Reuse wakers across polls. Besides avoiding repeated allocation,
             // this gives futures a stable waker identity for comparisons such
             // as `Waker::will_wake`.
-            let waker = waker_cache
-                .entry(task_id)
-                .or_insert_with(|| TaskWaker::new(task_id, task_queue.clone()));
+            let waker = waker_cache.entry(task_id).or_insert_with(|| TaskWaker::new(task_id, task_queue.clone()));
             let mut context = Context::from_waker(waker);
             match task.poll(&mut context) {
                 Poll::Ready(()) => {

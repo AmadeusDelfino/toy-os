@@ -55,8 +55,7 @@ impl CpuBrandString {
             let result = __cpuid_count(CPUID_BRAND_STRING_FIRST_LEAF + i, CPUID_DEFAULT_SUBLEAF);
 
             let offset = (i as usize) * CPUID_BRAND_STRING_BYTES_PER_LEAF;
-            buf[offset..offset + CPUID_REGISTER_BYTE_LEN]
-                .copy_from_slice(&result.eax.to_le_bytes());
+            buf[offset..offset + CPUID_REGISTER_BYTE_LEN].copy_from_slice(&result.eax.to_le_bytes());
             buf[offset + CPUID_REGISTER_BYTE_LEN..offset + CPUID_REGISTER_BYTE_LEN * 2]
                 .copy_from_slice(&result.ebx.to_le_bytes());
             buf[offset + CPUID_REGISTER_BYTE_LEN * 2..offset + CPUID_REGISTER_BYTE_LEN * 3]
@@ -65,11 +64,7 @@ impl CpuBrandString {
                 .copy_from_slice(&result.edx.to_le_bytes());
         }
 
-        let len = buf
-            .iter()
-            .rposition(|&b| b != 0 && b != b' ')
-            .map(|p| p + 1)
-            .unwrap_or(0);
+        let len = buf.iter().rposition(|&b| b != 0 && b != b' ').map(|p| p + 1).unwrap_or(0);
 
         Some(Self { buf, len })
     }
@@ -129,8 +124,8 @@ Enabled ({})
         for sub_leaf in 0u32.. {
             let result = __cpuid_count(CPUID_EXTENDED_TOPOLOGY_LEAF, sub_leaf);
 
-            let level_type = (result.ecx >> CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_SHIFT)
-                & CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_MASK;
+            let level_type =
+                (result.ecx >> CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_SHIFT) & CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_MASK;
 
             // level_type 0 = invalid
             if level_type == CPUID_EXTENDED_TOPOLOGY_LEVEL_TYPE_INVALID {

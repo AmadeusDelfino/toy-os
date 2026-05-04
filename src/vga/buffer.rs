@@ -34,8 +34,7 @@ fn test_println_many() {
 
 #[test_case]
 fn test_println_output() {
-    use crate::println;
-    use crate::vga::DISPLAY;
+    use crate::{println, vga::DISPLAY};
 
     let s = "Some test string that fits on a single line";
     println!("{}", s);

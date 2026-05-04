@@ -70,11 +70,12 @@
 //! forever.
 
 use super::Locked;
-use crate::memory::HEAP_SIZE;
-use crate::println;
+use crate::{memory::HEAP_SIZE, println};
 use alloc::alloc::{GlobalAlloc, Layout};
-use core::mem::{align_of, size_of};
-use core::ptr::{self, NonNull};
+use core::{
+    mem::{align_of, size_of},
+    ptr::{self, NonNull},
+};
 
 const BLOCK_SIZES: &[usize] = &[8, 16, 32, 64, 128, 256, 512, 1024, 2048];
 
@@ -99,11 +100,7 @@ struct BucketDiagnostics {
 
 fn classify_layout(layout: &Layout) -> SizeClass {
     let required_block_size = layout.size().max(layout.align());
-    match BLOCK_SIZES
-        .iter()
-        .enumerate()
-        .find(|&(_, &block_size)| block_size >= required_block_size)
-    {
+    match BLOCK_SIZES.iter().enumerate().find(|&(_, &block_size)| block_size >= required_block_size) {
         Some((index, &block_size)) => SizeClass::Bucket { index, block_size },
         None => SizeClass::Fallback,
     }
@@ -192,10 +189,7 @@ impl FixedSizeBlockAllocator {
     }
 
     pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
-        assert!(
-            !self.initialized,
-            "heap allocator must not be initialized twice"
-        );
+        assert!(!self.initialized, "heap allocator must not be initialized twice");
 
         // SAFETY: The caller must provide a mapped, unused heap region and
         // call this exactly once before any heap allocations are performed.
@@ -218,10 +212,7 @@ impl FixedSizeBlockAllocator {
             BucketDiagnostics {
                 bucket_index: index,
                 block_size,
-                count: count_free_list(
-                    self.list_heads[index],
-                    free_list_traversal_limit(block_size),
-                ),
+                count: count_free_list(self.list_heads[index], free_list_traversal_limit(block_size)),
             }
         })
     }
@@ -350,98 +341,55 @@ mod tests {
     fn classify_layout_returns_bucket_with_index_and_block_size() {
         assert_eq!(
             classify_layout(&Layout::from_size_align(1, 1).unwrap()),
-            SizeClass::Bucket {
-                index: 0,
-                block_size: 8
-            }
+            SizeClass::Bucket { index: 0, block_size: 8 }
         );
         assert_eq!(
             classify_layout(&Layout::from_size_align(8, 8).unwrap()),
-            SizeClass::Bucket {
-                index: 0,
-                block_size: 8
-            }
+            SizeClass::Bucket { index: 0, block_size: 8 }
         );
         assert_eq!(
             classify_layout(&Layout::from_size_align(9, 1).unwrap()),
-            SizeClass::Bucket {
-                index: 1,
-                block_size: 16
-            }
+            SizeClass::Bucket { index: 1, block_size: 16 }
         );
         assert_eq!(
             classify_layout(&Layout::from_size_align(4, 32).unwrap()),
-            SizeClass::Bucket {
-                index: 2,
-                block_size: 32
-            }
+            SizeClass::Bucket { index: 2, block_size: 32 }
         );
     }
 
     #[test_case]
     fn classify_layout_returns_fallback_when_no_bucket_fits() {
-        assert_eq!(
-            classify_layout(&Layout::from_size_align(2049, 1).unwrap()),
-            SizeClass::Fallback
-        );
-        assert_eq!(
-            classify_layout(&Layout::from_size_align(4, 4096).unwrap()),
-            SizeClass::Fallback
-        );
+        assert_eq!(classify_layout(&Layout::from_size_align(2049, 1).unwrap()), SizeClass::Fallback);
+        assert_eq!(classify_layout(&Layout::from_size_align(4, 4096).unwrap()), SizeClass::Fallback);
     }
 
     #[test_case]
     fn count_free_list_returns_zero_for_empty_list() {
-        assert_eq!(
-            count_free_list(ptr::null_mut(), 3),
-            FreeListCount::Complete(0)
-        );
+        assert_eq!(count_free_list(ptr::null_mut(), 3), FreeListCount::Complete(0));
     }
 
     #[test_case]
     fn count_free_list_counts_a_small_list() {
-        let mut third = ListNode {
-            next: ptr::null_mut(),
-        };
-        let mut second = ListNode {
-            next: &mut third as *mut ListNode,
-        };
-        let mut first = ListNode {
-            next: &mut second as *mut ListNode,
-        };
+        let mut third = ListNode { next: ptr::null_mut() };
+        let mut second = ListNode { next: &mut third as *mut ListNode };
+        let mut first = ListNode { next: &mut second as *mut ListNode };
 
-        assert_eq!(
-            count_free_list(&mut first as *mut ListNode, 4),
-            FreeListCount::Complete(3)
-        );
+        assert_eq!(count_free_list(&mut first as *mut ListNode, 4), FreeListCount::Complete(3));
     }
 
     #[test_case]
     fn count_free_list_stops_when_limit_is_exceeded() {
-        let mut first = ListNode {
-            next: ptr::null_mut(),
-        };
-        let mut second = ListNode {
-            next: &mut first as *mut ListNode,
-        };
+        let mut first = ListNode { next: ptr::null_mut() };
+        let mut second = ListNode { next: &mut first as *mut ListNode };
         first.next = &mut second as *mut ListNode;
 
-        assert_eq!(
-            count_free_list(&mut first as *mut ListNode, 2),
-            FreeListCount::ExceededLimit { traversed: 2 }
-        );
+        assert_eq!(count_free_list(&mut first as *mut ListNode, 2), FreeListCount::ExceededLimit { traversed: 2 });
     }
 
     #[test_case]
     fn free_list_traversal_limit_is_derived_from_heap_size() {
-        assert_eq!(
-            free_list_traversal_limit(8),
-            crate::memory::HEAP_SIZE / 8 + 1
-        );
-        assert_eq!(
-            free_list_traversal_limit(2048),
-            crate::memory::HEAP_SIZE / 2048 + 1
-        );
+        assert_eq!(free_list_traversal_limit(8), crate::memory::HEAP_SIZE / 8 + 1);
+        assert_eq!(free_list_traversal_limit(2048), crate::memory::HEAP_SIZE / 2048 + 1);
     }
 
     #[test_case]

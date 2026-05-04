@@ -9,8 +9,7 @@ pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 // Here is a piece of code that is "unsafe safe".
 // It's necessary to use `unsafe` because `ChainedPics::new` with incorrect offsets can generate a `UB` error,
 // but in our case we are confident that we are using the correct offsets (or so we hope).
-pub static PICS: LockedIrq<ChainedPics> =
-    LockedIrq::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
+pub static PICS: LockedIrq<ChainedPics> = LockedIrq::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]

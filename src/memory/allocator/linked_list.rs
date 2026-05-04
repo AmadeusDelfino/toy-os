@@ -1,7 +1,8 @@
-use crate::lock::Locked;
-use crate::memory::align_up;
-use core::alloc::{GlobalAlloc, Layout};
-use core::ptr;
+use crate::{lock::Locked, memory::align_up};
+use core::{
+    alloc::{GlobalAlloc, Layout},
+    ptr,
+};
 
 struct ListNode {
     size: usize,
@@ -29,9 +30,7 @@ pub struct LinkedListAllocator {
 impl LinkedListAllocator {
     /// Creates an empty LinkedListAllocator.
     pub const fn new() -> Self {
-        Self {
-            head: ListNode::new(0),
-        }
+        Self { head: ListNode::new(0) }
     }
 
     /// Initialize the allocator with the given heap bounds.
@@ -115,10 +114,7 @@ impl LinkedListAllocator {
     ///
     /// Returns the adjusted size and alignment as a (size, align) tuple.
     fn size_align(layout: Layout) -> (usize, usize) {
-        let layout = layout
-            .align_to(align_of::<ListNode>())
-            .expect("adjusting alignment failed")
-            .pad_to_align();
+        let layout = layout.align_to(align_of::<ListNode>()).expect("adjusting alignment failed").pad_to_align();
         let size = layout.size().max(size_of::<ListNode>());
         (size, layout.align())
     }

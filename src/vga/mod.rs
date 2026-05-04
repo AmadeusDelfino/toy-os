@@ -33,8 +33,5 @@ macro_rules! println {
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    DISPLAY
-        .lock()
-        .write_fmt(args)
-        .expect("Failed to write in display buffer");
+    DISPLAY.lock().write_fmt(args).expect("Failed to write in display buffer");
 }

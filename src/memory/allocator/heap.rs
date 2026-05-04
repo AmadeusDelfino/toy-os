@@ -1,11 +1,11 @@
 use super::ALLOCATOR;
-use crate::memory::{HEAP_SIZE, HEAP_START};
-use crate::println;
+use crate::{
+    memory::{HEAP_SIZE, HEAP_START},
+    println,
+};
 use x86_64::{
     VirtAddr,
-    structures::paging::{
-        FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB, mapper::MapToError,
-    },
+    structures::paging::{FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB, mapper::MapToError},
 };
 
 /// Maps the kernel heap range and initializes the global heap allocator.
@@ -18,10 +18,7 @@ pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
     frame_allocator: &mut impl FrameAllocator<Size4KiB>,
 ) -> Result<(), MapToError<Size4KiB>> {
-    assert!(
-        !ALLOCATOR.lock().is_initialized(),
-        "heap allocator must not be initialized twice"
-    );
+    assert!(!ALLOCATOR.lock().is_initialized(), "heap allocator must not be initialized twice");
 
     println!("Initializing heap allocation");
     let page_range = {
@@ -33,9 +30,7 @@ pub fn init_heap(
     };
 
     for page in page_range {
-        let frame = frame_allocator
-            .allocate_frame()
-            .ok_or(MapToError::FrameAllocationFailed)?;
+        let frame = frame_allocator.allocate_frame().ok_or(MapToError::FrameAllocationFailed)?;
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
         // SAFETY: The frame allocator returns an unused physical frame, and
         // this function maps each heap page exactly once before the heap
@@ -48,9 +43,6 @@ pub fn init_heap(
     unsafe {
         ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
     }
-    println!(
-        "Heap allocation successfully initialized. Start: {} | Size: {}",
-        HEAP_START, HEAP_SIZE
-    );
+    println!("Heap allocation successfully initialized. Start: {} | Size: {}", HEAP_START, HEAP_SIZE);
     Ok(())
 }

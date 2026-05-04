@@ -1,7 +1,9 @@
 use alloc::boxed::Box;
-use core::pin::Pin;
-use core::sync::atomic::{AtomicU64, Ordering};
-use core::task::{Context, Poll};
+use core::{
+    pin::Pin,
+    sync::atomic::{AtomicU64, Ordering},
+    task::{Context, Poll},
+};
 
 pub struct Task {
     future: Pin<Box<dyn Future<Output = ()>>>,
@@ -13,10 +15,7 @@ pub struct TaskId(u64);
 
 impl Task {
     pub fn new(future: impl Future<Output = ()> + 'static) -> Task {
-        Task {
-            id: TaskId::new(),
-            future: Box::pin(future),
-        }
+        Task { id: TaskId::new(), future: Box::pin(future) }
     }
 
     pub fn id(&self) -> TaskId {

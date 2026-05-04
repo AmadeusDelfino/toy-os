@@ -1,6 +1,8 @@
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
-use x86_64::PhysAddr;
-use x86_64::structures::paging::{FrameAllocator, PhysFrame, Size4KiB};
+use x86_64::{
+    PhysAddr,
+    structures::paging::{FrameAllocator, PhysFrame, Size4KiB},
+};
 
 /// A FrameAllocator that returns usable frames from the bootloader's memory map.
 pub struct BootInfoFrameAllocator {
@@ -15,10 +17,7 @@ impl BootInfoFrameAllocator {
     /// memory map is valid. The main requirement is that all frames that are marked
     /// as `USABLE` in it are really unused.
     pub unsafe fn init(memory_map: &'static MemoryMap) -> Self {
-        BootInfoFrameAllocator {
-            memory_map,
-            next: 0,
-        }
+        BootInfoFrameAllocator { memory_map, next: 0 }
     }
 
     /// Returns an iterator over the usable frames specified in the memory map.
