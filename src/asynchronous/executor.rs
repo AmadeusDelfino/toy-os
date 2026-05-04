@@ -182,7 +182,7 @@ impl Executor {
 mod tests {
     use spin::Mutex;
 
-use super::*;
+    use super::*;
 
     #[test_case]
     fn insert_task_when_call_spawn() {

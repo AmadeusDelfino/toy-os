@@ -29,31 +29,6 @@ async fn loop_initialized_log() {
     println!("Loop initialized!");
 }
 
-struct TestArc {
-    number: u64,
-}
-
-impl TestArc {
-    pub fn new() -> Self {
-        Self { number: 1 }
-    }
-
-    pub fn get_n(&self) -> u64 {
-        self.number
-    }
-
-    pub fn set_n(&mut self, n: u64) {
-        self.number = n;
-    }
-}
-
-async fn test_arc_fn(data: Arc<Mutex<TestArc>>) {
-    let mut l = data.lock();
-    println!("Testing Arc! Old value: {}", l.get_n());
-    l.set_n(5);
-    println!("new number insede future: {}", l.get_n());
-}
-
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("Starting Toy-OS!");
     toy_os::init();
@@ -93,12 +68,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("lapic_version: {}", lapic_version);
     println!("lapic_id: {}", lapic_id);
 
-    let test_arc = Arc::new(Mutex::new(TestArc::new()));
-
     let mut executor = Executor::new();
     executor.spawn(Task::new(loop_initialized_log()));
-    executor.spawn(Task::new(test_arc_fn(Arc::clone(&test_arc))));
-    executor.spawn(Task::new(test_arc_fn(Arc::clone(&test_arc))));
     executor.spawn(Task::new(print_keypresses()));
     println!("Toy-OS started");
     println!("Initializing loop...");

@@ -10,9 +10,9 @@ extern crate alloc;
 
 #[cfg(test)]
 use bootloader::entry_point;
+use core::{alloc::Layout, panic::PanicInfo};
 #[cfg(test)]
 use x86_64::VirtAddr;
-use core::{alloc::Layout, panic::PanicInfo};
 
 pub mod asynchronous;
 pub mod cpu;
